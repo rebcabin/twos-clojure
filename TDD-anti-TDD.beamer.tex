@@ -1,0 +1,147 @@
+% Created 2017-04-05 Wed 20:33
+% Intended LaTeX compiler: pdflatex
+\documentclass[presentation]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{palatino}
+\usepackage{siunitx}
+\usepackage{esdiff}
+\usepackage{xfrac}
+\usepackage{nicefrac}
+\usepackage{faktor}
+\usepackage[euler-digits,euler-hat-accent]{eulervm}
+\usetheme{Madrid}
+\author{Brian Beckman}
+\date{\today}
+\title{Junior Johnson vs. The Dwarves}
+\hypersetup{
+ pdfauthor={Brian Beckman},
+ pdftitle={Junior Johnson vs. The Dwarves},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 25.1.1 (Org mode 9.0.5)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+
+\section{This is the first structural section}
+\label{sec:org176f1c9}
+
+\begin{frame}[label={sec:orgf76da37}]{Frame 1}
+\begin{columns}
+\begin{column}{0.48\columnwidth}
+\begin{block}{Thanks to Eric Fraga}
+for the first viable Beamer setup in Org
+\end{block}
+\end{column}
+\begin{column}{0.48\columnwidth}
+\begin{block}<2->{Thanks to everyone else}
+for contributing to the discussion
+\note{This will be formatted as a beamer note
+}
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+\begin{frame}[label={sec:orgcac18ba}]{Frame 2 (where we will not use columns)}
+\begin{block}{Request}
+Please test this stuff!
+\end{block}
+\end{frame}
+
+\section{Section 2}
+\label{sec:org18c9e16}
+
+\begin{frame}[label={sec:org8dc69cc}]{Frame 2.1}
+here is some stuff
+\begin{enumerate}
+\item here is a list
+\item more in the list
+\item even more
+\begin{enumerate}
+\item nested
+\item numbered (that didn't work!)
+\end{enumerate}
+\end{enumerate}
+\end{frame}
+
+\section{Section 3}
+\label{sec:org1e16d0b}
+
+\begin{frame}[label={sec:org0f8a30e}]{Frame 3.1}
+\end{frame}
+
+\section{A Story}
+\label{sec:org69472a8}
+\begin{frame}[fragile,label={sec:org595f858}]{Tuesday Night, Slam-Coding}
+ \begin{itemize}
+\item basics from a paper, into a library five layers down
+\end{itemize}
+
+$B=\begin{cases} \begin{matrix} \frac { 1 }{ 2 } -\frac { \theta ^{ 2 } }{ 4! }
++\frac { \theta ^{ 4 } }{ 6! } , & | \theta | \, \lesssim \, 10^{ -7 } \end{matrix}
+\\ \begin{matrix} { \left( 1-\cos { \theta  }  \right)  }/{ { \theta  }^{ 2 } }
+& \mathrm{otherwise} \quad  \end{matrix} \end{cases}$
+
+\begin{verbatim}
+if (std::abs(th) < SMALL_ANGLE) {
+    B = (0.5 - th * th * 1.0 / 24.0
+    + th * th * th * th * 1.0 / 720.0);
+} else { B = (1.0 - cos(th)) / th * th; }
+\end{verbatim}
+\end{frame}
+
+
+
+\section{A Story}
+\label{sec:org72440ae}
+\begin{frame}[label={sec:org3b17bc2}]{Wednesday --> Friday, Three Thousand More Lines}
+\end{frame}
+\begin{frame}[label={sec:orgd654bde}]{Friday Night, Integration Time, Something is Wrong}
+\begin{block}{Can you finish by Monday?}
+\end{block}
+\end{frame}
+
+\section{A Story}
+\label{sec:orgf49d43b}
+\(x/yz\)
+\begin{block}{"the manuscript-submission instructions for the Physical Review journals}
+\end{block}
+\begin{block}{state that multiplication is of higher precedence than division with a slash,}
+\end{block}
+\begin{block}{and this is also the convention observed in prominent physics textbooks such}
+\end{block}
+\begin{block}{as the Course of Theoretical Physics by Landau and Lifshitz and the}
+\end{block}
+\begin{block}{Feynman Lectures on Physics."}
+\end{block}
+\begin{frame}[label={sec:org67c99f7}]{But C / C++ / Python / MATLAB / etc. say}
+\(x/yz = xz/y\)
+\end{frame}
+\begin{frame}[label={sec:org47dd76c}]{Unit Testing would have caught this Tuesday}
+\end{frame}
+\begin{frame}[label={sec:org86683d5}]{Putting off testing to Friday requires us to debug / search}
+\begin{block}{Actually, this bug was also lurking in MATLAB code transcribed from the same source}
+\end{block}
+\end{frame}
+\end{document}

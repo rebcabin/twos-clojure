@@ -1,0 +1,93 @@
+#+TITLE: Junior Johnson vs. The Dwarves
+#+AUTHOR: Brian Beckman
+#+OPTIONS: H:2 toc:t num:t
+#+LATEX_CLASS: beamer
+#+LATEX_CLASS_OPTIONS: [presentation]
+#+LaTeX_HEADER: \usepackage{geometry}
+#+LaTeX_HEADER: \usepackage{amsmath}
+#+LaTeX_HEADER: \usepackage{amssymb}
+#+LaTeX_HEADER: \usepackage{amsfonts}
+#+LaTeX_HEADER: \usepackage{palatino}
+#+LaTeX_HEADER: \usepackage{siunitx}
+#+LaTeX_HEADER: \usepackage{esdiff}
+#+LaTeX_HEADER: \usepackage{xfrac}
+#+LaTeX_HEADER: \usepackage{nicefrac}
+#+LaTeX_HEADER: \usepackage{faktor}
+#+LaTeX_HEADER: \usepackage[euler-digits,euler-hat-accent]{eulervm}
+#+BEAMER_THEME: Madrid
+#+COLUMNS: %45ITEM %10BEAMER_ENV(Env) %10BEAMER_ACT(Act) %4BEAMER_COL(Col) %8BEAMER_OPT(Opt)
+
+* This is the first structural section
+
+** Frame 1
+*** Thanks to Eric Fraga                                           :B_block:
+    :PROPERTIES:
+    :BEAMER_COL: 0.48
+    :BEAMER_ENV: block
+    :END:
+    for the first viable Beamer setup in Org
+*** Thanks to everyone else                                        :B_block:
+    :PROPERTIES:
+    :BEAMER_COL: 0.48
+    :BEAMER_ACT: <2->
+    :BEAMER_ENV: block
+    :END:
+    for contributing to the discussion
+**** This will be formatted as a beamer note                       :B_note:
+     :PROPERTIES:
+     :BEAMER_env: note
+     :END:
+** Frame 2 (where we will not use columns)
+*** Request
+    Please test this stuff!
+
+* Section 2
+
+** Frame 2.1
+   here is some stuff
+   1. here is a list
+   2. more in the list
+   3. even more
+      1. nested
+      2. numbered (that didn't work!)
+        
+* Section 3
+
+** Frame 3.1
+
+* A Story
+** Tuesday Night, Slam-Coding
+
+   - basics from a paper, into a library five layers down
+
+#+BEGIN_EXPORT latex
+$B=\begin{cases} \begin{matrix} \frac { 1 }{ 2 } -\frac { \theta ^{ 2 } }{ 4! }
++\frac { \theta ^{ 4 } }{ 6! } , & | \theta | \, \lesssim \, 10^{ -7 } \end{matrix}
+\\ \begin{matrix} { \left( 1-\cos { \theta  }  \right)  }/{ { \theta  }^{ 2 } }
+& \mathrm{otherwise} \quad  \end{matrix} \end{cases}$
+#+END_EXPORT
+
+#+BEGIN_SRC C
+if (std::abs(th) < SMALL_ANGLE) {
+    B = (0.5 - th * th * 1.0 / 24.0
+    + th * th * th * th * 1.0 / 720.0);
+} else { B = (1.0 - cos(th)) / th * th; }
+#+END_SRC
+
+* A Story
+** Wednesday --> Friday, Three Thousand More Lines
+** Friday Night, Integration Time, Something is Wrong
+*** Can you finish by Monday?
+
+* A Story
+$x/yz$
+*** "the manuscript-submission instructions for the Physical Review journals  
+*** state that multiplication is of higher precedence than division with a slash,
+*** and this is also the convention observed in prominent physics textbooks such  
+*** as the Course of Theoretical Physics by Landau and Lifshitz and the 
+*** Feynman Lectures on Physics."
+** But C / C++ / Python / MATLAB / etc. say
+$x/yz = xz/y$
+** Unit Testing would have caught this Tuesday
+** Putting off testing to Friday requires us to debug / search
+*** Actually, this bug was also lurking in MATLAB code transcribed from the same source

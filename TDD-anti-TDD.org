@@ -1,0 +1,148 @@
+#+TITLE: Junior Johnson vs. the Dwarves
+#+AUTHOR: Brian Beckman
+#+DATE: <2017-04-05 Wed>
+#+EMAIL: bbeckman@amazon.com
+#+OPTIONS: ':t *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t c:nil
+#+OPTIONS: d:(not "LOGBOOK") date:t e:t email:nil f:t inline:t
+#+OPTIONS: num:t p:nil pri:nil stat:t tags:t tasks:t tex:t timestamp:t toc:t
+#+OPTIONS: todo:t |:t
+#+SELECT_TAGS: export
+#+STARTUP: indent
+#+LaTeX_CLASS_OPTIONS: [10pt,oneside,x11names]
+#+LaTeX_HEADER: \usepackage{geometry}
+#+LaTeX_HEADER: \usepackage{amsmath}
+#+LaTeX_HEADER: \usepackage{amssymb}
+#+LaTeX_HEADER: \usepackage{amsfonts}
+#+LaTeX_HEADER: \usepackage{palatino}
+#+LaTeX_HEADER: \usepackage{siunitx}
+#+LaTeX_HEADER: \usepackage{esdiff}
+#+LaTeX_HEADER: \usepackage{xfrac}
+#+LaTeX_HEADER: \usepackage{nicefrac}
+#+LaTeX_HEADER: \usepackage{faktor}
+#+LaTeX_HEADER: \usepackage[euler-digits,euler-hat-accent]{eulervm}
+#+OPTIONS: toc:2
+
+* 
+[[./junior_johnson_3.jpg]][[./hqdefault.jpg]]
+* Deliver the Hooch!
+** Deadline! Drive Like Junior Johnson
+*** 100 mph in the woods at night with the headlights off
+[[./6a00d8341bfe8453ef0134802e46f2970c-800wi.hooch.jpg]]
+** Gotta be lucky AND good
+*** hit a tree? you have a problem
+*** no telling how long till you're going again
+*** you might not make it
+* Choice 2: Dig a Tunnel
+[[./whiskey_tunnel_desc01.jpg]]
+** You only have to be good
+*** takes longer, but no backtracking and search / debugging
+**** time is more predictable
+*** lots of time for certification, documentation, proofs ("high assurance")
+
+* Summary & Disclaimer
+** WIP: Not fully thought out
+*** I reserve the right to change my mind
+*** TDD "feels" better because it sidesteps debugging
+**** Makes every programming language feel like a REPL
+**** Unpredictable debugging pitfalls are avoided more frequently
+**** Easily defensible for exploratory designs
+**** Defensible when large test corpora are required for certification
+**** Less defensible under time pressure
+*** Irony: defensible at the extremes of development
+**** When you're not sure what you're doing ("science")
+**** When you're absolutely sure what you're doing ("engineering with high QA")
+*** I have VERY recent experiences to talk about
+** As Always: "Unless You Know Better"
+
+* A Story
+** I'm digging along
+*** on schedule to deliver certifiable nav filter in three weeks
+*** phone call! "We're flying Wednesday! Deliver MONDAY!
+
+* A Story
+** Tuesday Night, slam-coding basics from a paper
+$B=\begin{cases} \begin{matrix} \frac { 1 }{ 2 } -\frac { \theta ^{ 2 } }{ 4! }
++\frac { \theta ^{ 4 } }{ 6! } , & | \theta | \, \lesssim \, 10^{ -7 } \end{matrix}
+\\ \begin{matrix} { \left( 1-\cos { \theta  }  \right)  }/{ { \theta  }^{ 2 } }
+& \mathrm{otherwise} \quad  \end{matrix} \end{cases}$
+
+if (std::abs(th) < SMALL_ANGLE) {
+    B = (0.5 - th * th * 1.0 / 24.0
+    + th * th * th * th * 1.0 / 720.0);
+} else { B = (1.0 - cos(th)) / th * th; }
+
+* A Story
+** Wednesday --> Friday, Three Thousand More Lines
+** Friday Night, Integration Time, Something is Wrong
+*** Can you finish by Monday?
+
+* A Story
+$x/yz$
+*** "the manuscript-submission instructions for the Physical Review journals  
+*** state that multiplication is of higher precedence than division with a slash,
+*** and this is also the convention observed in prominent physics textbooks such  
+*** as the Course of Theoretical Physics by Landau and Lifshitz and the 
+*** Feynman Lectures on Physics."
+** But C / C++ / Python / MATLAB / etc. say
+$x/yz = xz/y$
+** Unit Testing would have caught this Tuesday
+** Putting off testing to Friday requires us to debug / search
+*** Actually, this bug was also lurking in MATLAB code transcribed from the same source
+
+* The Tradeoff
+** If you don't need predictable schedule and high assurance
+*** You can afford the cost of mistakes
+*** You can afford occasional missed deadlines
+**** You can afford unbounded debugging time
+- Drive Like Junior Johnson
+** Otherwise, you need predictable schedule or high assurance
+*** You can't afford mistakes (aviation, CPUs, OSs, platform games)
+*** You can't afford missed deadlines (contracts, FAA, law suits, jail)
+*** You can't afford debugging time (channels are backing up)
+- Dig a Tunnel: Test-Driven Development (TDD)
+
+* The Tradeoff
+** TDD trades O(N) dev time for O(N log N) debugging time
+** Debugging is SEARCH
+*** The more you write before you test...
+**** the bigger your search space
+**** time is unpredictable
+***** but only logarithmically if you're good
+** TDD is LINEAR
+*** Tests = Specs = Docs <= Assured Code all at once
+*** Certification = formalized traceability
+**** Req'ts -> Designs -> Tests 
+*** Required by FAA etc.
+
+* Unit Tests vs. PBT (Property-Based Testing)
+** Unit Tests
+*** based on examples "points" invented by programmers
+*** limited by the ability of programmers to invent examples that exercise everything pertinent to a spec.  
+** Property-Based Testing (PBT)
+*** AKA QuickCheck, hypothesis (Python), rapidcheck (C++), test.check (Clojure)
+*** generates broader tests, statistically sampling the input domains
+*** checks assertions about properties of outputs
+*** best for comparing independent alternative implementations
+*** limited by the ability of programmers to understand broader, non-obvious properties
+
+* Examples:
+** Kalman Filter in C / C++ / Python
+** An Interview Question
+** Time Warp Operating System
+
+* Abstract: 
+** Test-Driven Development (TDD) can deliver higher-quality results with documentation 
+** and more predictable schedules than can slam-coding and debugging, but it can take longer. 
+** It's like digging a tunnel to deliver the moonshine versus driving at 100 mph through 
+** the woods at night with the headlights off. We present tradeoff analysis and examples 
+** from embedded aviation code in C / C++, where certification authorities often require 
+** traceable documentation and high assurance (machine-checked coding standards; proofs; 
+** exhaustive or statistical unit testing; more). We also present examples in Clojure, which
+** facilitates lightweight formal specs and generative testing for JVM code.
+
+** Normal unit testing is based on point-like examples invented by programmers (one point
+** in input domain mapped to one point in the output range). It's limited by the ability of
+** programmers to invent examples that exercise everything pertinent to a spec.  
+** Property-based testing generates broader tests, statistically sampling the input domains
+** and checking assertions about properties of outputs. It's limited by the ability of 
+** programmers to understand broader properties and to imagine non-obvious tests.
