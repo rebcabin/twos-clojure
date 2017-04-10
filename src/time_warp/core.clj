@@ -23,64 +23,59 @@
 
 ;;; DESIGN APPROACH ------------------------------------------------------------------
 
-;;; Each interesting data type comes with a protocol, a record types, and a
-;;; spec.
-;;;
-;;; The protocol for each type declares functions that records adhering to the
+;;; Each interesting data type comes with a protocol, a record type, a spec, and
+;;; some tests.
+
+;;; The protocol for each type declares functions that types adhering to the
 ;;; protocol must implement. For instance, the MessageQueueT protocol declares
 ;;; that every message queue must implement "fetch-bundle," "insert-message
 ;;; (with potential annihilation)," and "delete-message-by-mid." These functions
 ;;; are identical for both input queues and output queues despite the fact that
-;;; those two types of queues are prioritized by different fields of the
-;;; messages (receive-time for input queues and send-times for output queues).
-;;; The hiding of that impertinent difference is useful because it reduces the
-;;; the visibility of unnecessary detail at certain levels and the size of the
-;;; code overall. Those reductions, in turn, makes it easier to refactor or
-;;; otherwise modify the code as we develop it.
+;;; those two types of queues are prioritized differently (by receive-time for
+;;; input queues and by send-times for output queues). The hiding of that
+;;; impertinent difference is useful because it reduces the the visibility of
+;;; unnecessary detail at certain levels of the code, and reduces the size of
+;;; the code overall. Those reductions, in turn, makes it easier to refactor or
+;;; otherwise modify the code as we develop it (standard argument in favor of
+;;; polymorphism: conceptual economy when one can find a common set of functions
+;;; that operate on different types).
 
 ;;; Having a record for each type serves two purposes: (1) handy constructors
-;;; for instances, (2) a supported place to "hang" implementations of protocols.
-;;; For instance, there is an input-queue record and an output-queue record,
-;;; each implementing the MessageQueueT protocol. Even when there is only one
-;;; record type implementing a given protocol, the "record" seems the most
-;;; elegant way currently available in Clojure to package the relationships
-;;; amongst protocols, hashmappy data structures like records and priority-maps,
-;;; and specs.
+;;; for instances, (2) a place to "hang" implementations of protocols. For
+;;; instance, there is an input-queue record and an output-queue record, each
+;;; implementing the MessageQueueT protocol. Even when there is only one record
+;;; type implementing a given protocol, the "record" seems the most elegant way
+;;; currently available in Clojure to package the relationships amongst
+;;; protocols, hashmappy data structures like records and priority-maps, and
+;;; specs. There is a discussion of this issue in the Clojure groups [at this
+;;; URL](https://goo.gl/5USUP9).
 
 ;;; Specs assert logical properties of (instances of) types. For instance, the
 ;;; spec for an ::input-queue asserts that every instance must be a
-;;; ::priority-map prioritized on "vals," with "val" in the formal sense of the
-;;; second element of each key-value pair in the priority map. Every "val" must
-;;; be a virtual time and every virtual-time val must equal the receive-time of
-;;; the message in the key position of each key-value pair in the priority map.
-;;; The spec further provides a test generator in which the virtual times are
-;;; pulled from the receive-time fields of messages, as they must be for an
-;;; input queue, and the tests in the main test file, core_test.clj, check this
-;;; property. They check this property with a "defspec" that lives in the test
-;;; file (see test #23.)
+;;; ::priority-map prioritized on "vals," with "val" being the second element of
+;;; each key-value pair in the priority map. Every "val" must be a virtual time
+;;; and every virtual-time val must equal the receive-time of the message in the
+;;; key position of each key-value pair in the priority map. The spec further
+;;; provides a test generator in which the virtual times are pulled from the
+;;; receive-time fields of messages, as they must be for an input queue, and the
+;;; tests in the main test file, core_test.clj, check this property. They check
+;;; this property with a "defspec" that lives in the test file (see test #23.)
 
 ;;; Records act like hashmaps in most (if not all) respects, so they can conform
-;;; to specs written with the spec primitive "s/keys" (see test #8). This is a
-;;; brilliant bit of design in test.spec that brings Clojure programming
-;;; assurance to the level of statically typed languages.
-
-;;; There is some intentional redundancy in the spec in the main file, core.clj,
-;;; and the defspec in the test file, core_test.clj. This is a side-effect of
-;;; the interactive and incremental style of development, where we leave old
-;;; tests in, by default, until we're sure they're wrong, at the cost of
-;;; occasional redundancy. This is cheap assurance.
+;;; to specs written with the spec primitive "s/keys" (see test #8).
 
 ;;; NAMING CONVENTIONS ---------------------------------------------------------------
 
 ;;; DEFRECORD ------------------------------------------------------------------------
 
 ;;; Records are in kebab-case, sometimes prepended with "tw-" to avoid ambiguity
-;;; with more general ideas. Records create Java classes in partial snake_case
-;;; behind the scenes. For instance, the fully qualified name of the
-;;; virtual-time record type is time_warp.core.virtual-time. Try it in the REPL:
-;;; keyboard in (class time_warp.core.virtual-time) and see that the type is
-;;; java.lang.Class. Notice that the namespace portion of the name has been
-;;; converted to snake_case. Contrast the constructor, automatically created by
+;;; with more general ideas like "messages". Records create Java classes in
+;;; partial snake_case behind the scenes. For instance, the fully qualified name
+;;; of the virtual-time record type is time_warp.core.virtual-time. Try it in
+;;; the REPL: keyboard in (class time_warp.core.virtual-time) and see that the
+;;; type is java.lang.Class. Notice that the namespace portion of the name has
+;;; been converted to snake_case. Contrast the constructor, automatically
+;;; created by
 
 ;;; Clojure, which has name time-warp.core/->virtual-time, in kebab-case. Try it
 ;;; in the REPL: keyboard in (time-warp.core/->virtual-time 42) and notice that
