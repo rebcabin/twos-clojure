@@ -21,7 +21,7 @@
 ;;   \_/ |_|_|  \__|\_,_\__,_|_|   |_| |_|_|_|_\___|
 ;;; 1.
 (defspec minus-infinity-less-than-all-but-minus-infinity
-  10
+  100
   (prop/for-all
    [vt vt-gen]
    (if (not= (:vt vt) :vt-negative-infinity)
@@ -29,7 +29,7 @@
      true)))
 ;;; 2.
 (defspec plus-infinity-not-less-than-any
-  10
+  100
   (prop/for-all
    [vt vt-gen]
    (not (vt-lt vt-positive-infinity vt))))
@@ -44,56 +44,65 @@
   ;; Must refer to spec by fully-qualified keyword.
   (is (not (s/valid? :time-warp.core/message
                      (-make-message
-                      :sender       (new-uuid)
-                      ;; Must refer to defrecord by snake-cased java classpath
-                      ;; dot notation.
-                      :send-time    (time_warp.core.virtual-time. 42)
-                      :receiver     (new-uuid)
-                      ;; Receive time is less than send time, therefore message
-                      ;; is acausal and invalid.
-                      :receive-time (time_warp.core.virtual-time. 41)
-                      :body ["foo" "bar" "baz" "qux"])))))
+                      {:sender       (new-uuid)
+                       ;; Must refer to defrecord by snake-cased java classpath
+                       ;; dot notation.
+                       :send-time    (time_warp.core.virtual-time. 42)
+                       :receiver     (new-uuid)
+                       ;; Receive time is less than send time, therefore message
+                       ;; is acausal and invalid.
+                       :receive-time (time_warp.core.virtual-time. 41)
+                       :sign         1
+                       :body         ["foo" "bar" "baz" "qux"]
+                       :message-id   (new-uuid)})))))
 ;;; 4.
 (deftest hand-constructed-message-conforms-to-spec
   (is (s/valid? :time-warp.core/message
                 (-make-message
-                 :sender       (new-uuid)
-                 :send-time    (time_warp.core.virtual-time. 42)
-                 :receiver     (new-uuid)
-                 ;; This one is OK.
-                 :receive-time (time_warp.core.virtual-time. 43)
-                 :body ["foo" "bar" "baz" "qux"]))))
+                 {:sender       (new-uuid)
+                  :send-time    (time_warp.core.virtual-time. 42)
+                  :receiver     (new-uuid)
+                  ;; This one is OK.
+                  :receive-time (time_warp.core.virtual-time. 43)
+                  :body         ["foo" "bar" "baz" "qux"]
+                  :sign         1
+                  :message-id   (new-uuid)}))))
 ;;; 5.
 (defspec send-time-lt-receive-time-for-causal-messages
   10
   (prop/for-all
    [m (s/gen :time-warp.core/message)]
    (vt-lt (:send-time m) (:receive-time m))))
+
+(defn hand-constructed-message []
+  (-make-message
+   {:sender       (new-uuid)
+    :send-time    (time_warp.core.virtual-time. 42)
+    :receiver     (new-uuid)
+    :receive-time (time_warp.core.virtual-time. 43)
+    :body         (random-sample 0.5 ["foo" "bar" "baz" "qux"])
+    :sign         (rand-nth [-1 1])
+    :message-id   (new-uuid)}))
+
 ;;; 6.
 (deftest hand-constructed-message-passes-match-but-id-with-modified-self
-  (is (let [m (-make-message
-               :sender       (new-uuid)
-               :send-time    (time_warp.core.virtual-time. 42)
-               :receiver     (new-uuid)
-               :receive-time (time_warp.core.virtual-time. 43)
-               :body ["foo" "bar" "baz" "qux"])]
+  (is (let [m (hand-constructed-message)]
         (.match-but-id m (assoc m :message-id (new-uuid))))))
 ;;; 7.
 (deftest hand-constructed-message-passes-match-ids-opposite-signs
-  (is (let [m (-make-message
-               :sender       (new-uuid)
-               :send-time    (time_warp.core.virtual-time. 42)
-               :receiver     (new-uuid)
-               :receive-time (time_warp.core.virtual-time. 43)
-               :body ["foo" "bar" "baz" "qux"])]
+  (is (let [m (hand-constructed-message)]
         (.match-ids-opposite-signs m (.flip-sign m)))))
+;;; 8.
+(deftest tw-message-record-conforms-to-hashmap-spec
+  (is (s/valid? :time-warp.core/message
+                (hand-constructed-message))))
 
 ;;  __  __                            ___      _
 ;; |  \/  |___ ______ __ _ __ _ ___  | _ \__ _(_)_ _ ___
 ;; | |\/| / -_|_-<_-</ _` / _` / -_) |  _/ _` | | '_(_-<
 ;; |_|  |_\___/__/__/\__,_\__, \___| |_| \__,_|_|_| /__/
 ;;                        |___/
-;;; 8.
+;;; 9.
 (defspec message-pairs-identical-but-for-sign
   10
   (prop/for-all
@@ -110,7 +119,8 @@
 ;; \ \ / (_)_ _| |_ _  _ __ _| |__|_   _(_)_ __  ___   / _ \ _  _ ___ _  _ ___
 ;;  \ V /| | '_|  _| || / _` | |___|| | | | '  \/ -_) | (_) | || / -_) || / -_)
 ;;   \_/ |_|_|  \__|\_,_\__,_|_|    |_| |_|_|_|_\___|  \__\_\\_,_\___|\_,_\___|
-;;; 9.
+
+;;; 10.
 (defspec input-queue-is-monotonic-in-virtual-time
   10 ;; This takes a long time at 99
   (prop/for-all
@@ -119,21 +129,21 @@
          vt-vt-pairs (partition 2 1 times)] ; constructs adjacent pairs
      (every? (partial apply #(vt-le %1 %2))
              vt-vt-pairs))))
-;;; 10.
+;;; 11.
 (defspec all-messages-in-an-input-queue-are-positive
   10
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (every? (fn [[msg vt]] (= 1 (:sign msg)))
            msg-vt-pairs)))
-;;; 11.
+;;; 12.
 (defspec input-queue-values-equal-receive-times
   10
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (every? (fn [[msg vt]] (vt-eq vt (:receive-time msg)))
            msg-vt-pairs)))
-;;; 12.
+;;; 13.
 (defspec all-messages-in-an-output-queue-are-negative
   10
   (prop/for-all
@@ -540,7 +550,7 @@
       :sign 1,
       :message-id #uuid "924c6b52-07d5-4598-be34-03e7c97e6745"}
      (time_warp.core.virtual-time. :vt-positive-infinity)})))
-;;; 13.
+;;; 14.
 (deftest two-messages-with-receive-time-3-in-iq-1
   (let [expected
         `({:sender #uuid "af0fec22-8f17-41ec-ac81-09758f8fff64",
@@ -562,67 +572,67 @@
            (fetch-bundle
             iq-1
             (time_warp.core.virtual-time. 3))))))
-;;; 14.
+;;; 15.
 (deftest thirty-one-messages-with-receive-time-0-in-iq-1
   (is (= 31 (count
              (fetch-bundle
               iq-1
               (time_warp.core.virtual-time. 0))))))
-;;; 15.
+;;; 16.
 (deftest one-message-with-receive-time-positive-infinity-in-iq-1
   (is (= 1 (count
             (fetch-bundle
              iq-1
              vt-positive-infinity)))))
-;;; 16.
+;;; 17.
 (deftest no-messages-with-receive-time-negative-infinity-in-iq-1
   (is (= 0 (count
             (fetch-bundle
              iq-1
              vt-negative-infinity)))))
-;;; 17.
+;;; 18.
 (deftest iq-1-is-monotonic-in-virtual-time
   (is (let [times (map second iq-1)
             vt-vt-pairs (partition 2 1 times)] ; constructs adjacent pairs
         (every? (partial apply #(vt-le %1 %2))
                 vt-vt-pairs))))
-;;; 18.
+;;; 19.
 (deftest all-messages-in-iq-1-are-positive
   (is (every? (fn [[msg vt]] (= 1 (:sign msg)))
               (:iq-priority-map iq-1))))
-;;; 19.
+;;; 20.
 (deftest every-vt-value-equals-receive-time-in-iq-1
   (is (every? (fn [[msg vt]] (= (:receive-time msg) vt))
               (:iq-priority-map iq-1))))
-;;; 20.
+;;; 21.
 (deftest forty-nine-messages-in-iq-1
   (is (= 49 (count (:iq-priority-map iq-1)))))
-;;; 21.
+;;; 22.
 (deftest iq-1-has-a-priority-queue
   (is (instance? clojure.data.priority_map.PersistentPriorityMap
                  (:iq-priority-map iq-1))))
-;;; 22.
+;;; 23.
 (defspec every-vt-value-equals-receive-time-in-an-input-queue
   10
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (every? (fn [[msg vt]] (= (:receive-time msg) vt))
            msg-vt-pairs)))
-;;; 23.
+;;; 24.
 (deftest deleting-one-message-produces-a-queue-with-forty-eight-messages
   (is (= 48 (-> iq-1
                 (delete-message-by-mid
                  #uuid "cbd5af9b-7788-4660-bcd4-a8abc2f16597")
                 :iq-priority-map
                 count))))
-;;; 24.
+;;; 25.
 (deftest deleting-a-junk-mid-leaves-the-queue-unmodified
   (is (= 48 (-> iq-1
                 (delete-message-by-mid
                  #uuid "10301030-1030-0204-1030-020402040204")
                 :iq-priority-map
                 count))))
-;;; 25.
+;;; 26.
 (deftest deleting-all-messages-produces-empty-queue
   (is (= 0 (-> (reduce delete-message-by-mid
                        iq-1
@@ -632,7 +642,7 @@
                             (map :message-id)))
                :iq-priority-map
                count))))
-;;; 26.
+;;; 27.
 (defspec inserting-a-new-input-message-into-iq-1-increases-its-count-to-fifty
   10
   (prop/for-all
@@ -641,12 +651,7 @@
              (insert-message m)
              :iq-priority-map
              count))))
-;;; 27.
-(defn tw-message-from-message-hashmap [mhm]
-  (apply #(time_warp.core.tw-message. %1 %2 %3 %4 %5 %6 %7) mhm))
-(defn random-message-hashmap-from-iq [iq]
-  (->> iq :iq-priority-map (into []) rand-nth first))
-(deftest annihilation-in-iq-1-reduces-count-to-forty-eight)
+
 ;;  ___                   _               _        _
 ;; | __|_ ___ __  ___ _ _(_)_ __  ___ _ _| |_ __ _| |
 ;; | _|\ \ / '_ \/ -_) '_| | '  \/ -_) ' \  _/ _` | |

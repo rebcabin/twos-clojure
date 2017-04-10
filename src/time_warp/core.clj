@@ -23,26 +23,10 @@
 
 ;;; DESIGN APPROACH ------------------------------------------------------------------
 
-;;; Each interesting data type comes with a spec, a protocol, and record types.
+;;; Each interesting data type comes with a protocol, a record types, and a
+;;; spec.
 ;;;
-;;; The spec asserts logical properties of (instances of) the type. For
-;;; instance, the spec for an ::input-queue asserts that every instance must be
-;;; a ::priority-map with every value a virtual time ("value" in the formal
-;;; sense of the second element of each key-value pair in the priority map), and
-;;; that every virtual-time value equals the receive-time of the message in the
-;;; key position of each key-value pair in the priority map. The spec further
-;;; provides a test generator in which the virtual times are pulled from the
-;;; receive-time fields of messages, as they must be for an input queue, and the
-;;; tests in the main test file, core_test.clj, check this property. They check
-;;; this property with a "defspec" that lives in the test file.
-
-;;; There is some intentional redundancy in the spec in the main file, core.clj,
-;;; and the defspec in the test file, core_test.clj. This is a side-effect of
-;;; the interactive and incremental style of development, where we leave old
-;;; tests in by default at the cost of occasional redundancy. This is cheap
-;;; assurance.
-
-;;; The protocol for each type declares functions that implementations of the
+;;; The protocol for each type declares functions that records adhering to the
 ;;; protocol must implement. For instance, the MessageQueueT protocol declares
 ;;; that every message queue must implement "fetch-bundle," "insert-message
 ;;; (with potential annihilation)," and "delete-message-by-mid." These functions
@@ -50,9 +34,9 @@
 ;;; those two types of queues are prioritized by different fields of the
 ;;; messages (receive-time for input queues and send-times for output queues).
 ;;; The hiding of that impertinent difference is useful because it reduces the
-;;; size of the code overall and the visibility of unnecessary detail at certain
-;;; levels. That, in turn, makes it easier to refactor or otherwise modify the
-;;; code as we develop it.
+;;; the visibility of unnecessary detail at certain levels and the size of the
+;;; code overall. Those reductions, in turn, makes it easier to refactor or
+;;; otherwise modify the code as we develop it.
 
 ;;; Having a record for each type serves two purposes: (1) handy constructors
 ;;; for instances, (2) a supported place to "hang" implementations of protocols.
@@ -60,7 +44,31 @@
 ;;; each implementing the MessageQueueT protocol. Even when there is only one
 ;;; record type implementing a given protocol, the "record" seems the most
 ;;; elegant way currently available in Clojure to package the relationships
-;;; amongst spec, protocol, and data structure.
+;;; amongst protocols, hashmappy data structures like records and priority-maps,
+;;; and specs.
+
+;;; Specs assert logical properties of (instances of) types. For instance, the
+;;; spec for an ::input-queue asserts that every instance must be a
+;;; ::priority-map prioritized on "vals," with "val" in the formal sense of the
+;;; second element of each key-value pair in the priority map. Every "val" must
+;;; be a virtual time and every virtual-time val must equal the receive-time of
+;;; the message in the key position of each key-value pair in the priority map.
+;;; The spec further provides a test generator in which the virtual times are
+;;; pulled from the receive-time fields of messages, as they must be for an
+;;; input queue, and the tests in the main test file, core_test.clj, check this
+;;; property. They check this property with a "defspec" that lives in the test
+;;; file (see test #23.)
+
+;;; Records act like hashmaps in most (if not all) respects, so they can conform
+;;; to specs written with the spec primitive "s/keys" (see test #8). This is a
+;;; brilliant bit of design in test.spec that brings Clojure programming
+;;; assurance to the level of statically typed languages.
+
+;;; There is some intentional redundancy in the spec in the main file, core.clj,
+;;; and the defspec in the test file, core_test.clj. This is a side-effect of
+;;; the interactive and incremental style of development, where we leave old
+;;; tests in, by default, until we're sure they're wrong, at the cost of
+;;; occasional redundancy. This is cheap assurance.
 
 ;;; NAMING CONVENTIONS ---------------------------------------------------------------
 
@@ -110,9 +118,9 @@
 ;;; exactly like the records they refer to, with leading "tw-" removed.
 
 ;;; (s/def ::virtual-time
-;;; (s/def ::message (s/and ::potentially-acausal-message
+;;; (s/def ::message (s/and ::potentially-acausal-message-hashmap ...
 ;;; (s/def ::state   (s/keys :req-un [::send-time ::body]))
-;;; (s/def ::process (s/keys :req-un [::event-main
+;;; (s/def ::process (s/keys :req-un [::event-main ...
 
 ;;; SUBORDINATE SPECS ----------------------------------------------------------------
 
@@ -126,7 +134,7 @@
 ;;; (s/def ::body         any?)
 ;;; (s/def ::sign         #{-1 1})
 ;;; (s/def ::message-id   ::mid)
-;;; (s/def ::potentially-acausal-message
+;;; (s/def ::potentially-acausal-message-hashmap
 
 ;;; (s/def ::input-message
 ;;; (s/def ::output-message
@@ -307,7 +315,7 @@
 
 ;;; In the REPL, try (s/exercise ::virtual-time)
 
-;;; EXPERIMENTAL
+;;; EXPERIMENTAL --------------------------------------------------------)
 
 ;;; An experimental view of the Time-Warp Universe is as a mesh of causally
 ;;; connected spacetime events.
@@ -351,30 +359,6 @@
 ;;; also specify :req-un and :opt-un for required and optional unqualified keys.
 ;;; These variants specify namespaced keys used to find their specification, but
 ;;; the map only checks for the unqualified version of the keys."
-
-(s/def ::potentially-acausal-message
-  (s/keys :req-un [::sender     ::send-time
-                   ::receiver   ::receive-time
-                   ::body       ::sign
-                   ::message-id ]))
-
-;;; Time-Warp Classic only allows causal messages. We call them just "messages."
-
-(s/def ::message
-  (s/and ::potentially-acausal-message
-         #(vt-lt (:send-time %) (:receive-time %))))
-
-;;; In the REPL, try (s/exercise ::message)
-
-;;; Input messages are always positive.
-
-(s/def ::input-message
-  (s/and ::message #(= (:sign %) 1)))
-
-;;; Output messages are always negative.
-
-(s/def ::output-message
-  (s/and ::message #(= (:sign %) -1)))
 
 ;;; Messages satisfy the following protocol on their signs.
 
@@ -430,15 +414,47 @@
 (defn -make-message
   "Produce a positive message with a fresh, random id and the other attributes
   given by arguments."
-  [&{:keys [sender   send-time
-            receiver receive-time
-            body]}]
+  [{:keys [sender   send-time
+           receiver receive-time
+           body     sign
+           message-id]}]
   (tw-message. sender   send-time
                receiver receive-time
-               body     1
-               (new-uuid)))
+               body     sign
+               message-id))
 
-;;; See the test file for some conformance examples.
+;;; See the test file for some conformance examples. An acausal message has
+;;; send-time less than or equal to receive time.
+
+(s/def ::potentially-acausal-message-hashmap
+  (s/keys :req-un [::sender     ::send-time
+                   ::receiver   ::receive-time
+                   ::body       ::sign
+                   ::message-id ]))
+
+;;; Time-Warp Classic only allows causal messages. We call them just "messages."
+;;; Note that a message hashmap wrapped in a defrecord, while acting mostly like
+;;; a hashmap, it does not satisfy an s/keys spec. Therefore, we insert an extra
+;;; layer that just generates and filters hashmap. TODO: consult the sages
+;;; whether there is a better way to fulfill the protocol-record-spec pattern.
+
+(s/def ::message
+  (s/with-gen
+    (s/and ;; ::potentially-acausal-message-hashmap
+           #(vt-lt (:send-time %) (:receive-time %)))
+    #(gen/fmap -make-message (s/gen ::potentially-acausal-message-hashmap))))
+
+;;; In the REPL, try (s/exercise ::message)
+
+;;; Input messages are always positive.
+
+(s/def ::input-message
+  (s/and ::message #(= (:sign %) 1)))
+
+;;; Output messages are always negative.
+
+(s/def ::output-message
+  (s/and ::message #(= (:sign %) -1)))
 
 (comment ---- MESSAGE PAIRS ---------------------------------------------)
 ;;  __  __                            ___      _
