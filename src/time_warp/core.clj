@@ -506,9 +506,10 @@
 ;;; priority map is a valid virtual-time queue.
 
 (defprotocol MessageQueueT
-  ;; Produce a collection of all messages with a virtual time matching the given
-  ;; vt. The matching virtual times are receive times from an input queue and
-  ;; send times in an output queue.
+  ;; A message queue is a collection of pairs of messages and virtual times such
+  ;; that the virtual time in each pair matches either the receive-time or the
+  ;; send-time of the message in the same pair. The matching virtual times are
+  ;; receive times from an input queue and send times in an output queue.
   (fetch-bundle   [q  vt])
   ;; Insert a message in a queue, potentially annihilating its antimessage.
   (insert-message [q   m])
@@ -531,7 +532,7 @@
   [xs]
   (every? #(s/valid? ::virtual-time %) (map second xs)))
 
-(defn -empty-vt-queue
+(defn -make-empty-vt-queue
   "A virtual-time queue is a priority map of [object vt] pairs, sorted by the
   virtual-time total ordering function \"-vt-compare-lt.\""
   []
@@ -648,7 +649,7 @@
                     %))
     #(s/gen (s/coll-of
              ::input-message-and-receive-time-pair
-             :into (-empty-vt-queue) :gen-max 50))))
+             :into (-make-empty-vt-queue) :gen-max 50))))
 
 ;;; Try (first (gen/sample (s/gen ::input-queue) 1)) in the REPL to get a
 ;;; randomly generated input queue.
@@ -700,7 +701,7 @@
                     %))
     #(s/gen (s/coll-of
              ::output-message-and-send-time-pair
-             :into (-empty-vt-queue) :gen-max 50))))
+             :into (-make-empty-vt-queue) :gen-max 50))))
 
 ;;  ___ _        _          ___
 ;; / __| |_ __ _| |_ ___   / _ \ _  _ ___ _  _ ___
@@ -761,7 +762,7 @@
 (defn -make-process [&{:keys [event-main  query-main]}]
   (tw-process. event-main query-main
                :vt-negative-infinity
-               (-empty-vt-queue) (-empty-vt-queue) (-empty-vt-queue)
+               (-make-empty-vt-queue) (-make-empty-vt-queue) (-make-empty-vt-queue)
                (new-uuid)))
 
 (defn tw-send

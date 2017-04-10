@@ -157,7 +157,7 @@
 (def iq-1
   (time_warp.core.input-queue.
    (into
-    (-empty-vt-queue)
+    (-make-empty-vt-queue)
     {(-make-message
       {:sender #uuid "d20f91ba-582f-4c64-a65f-f7d1d7892799",
        :send-time (time_warp.core.virtual-time. :vt-negative-infinity),
