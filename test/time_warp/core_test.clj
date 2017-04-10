@@ -703,6 +703,17 @@
              :iq-priority-map
              count))))
 
+;;; 28.
+(defspec all-message-ids-in-input-queue-are-unique
+  10
+  (prop/for-all
+   [iq (s/gen :time-warp.core/input-queue)]
+   (let [mid-set (reduce
+                  (fn [set [msg vt]] (conj set (:message-id msg)))
+                  #{}
+                  (:iq-priority-map iq))]
+     (= (count mid-set) (count (:iq-priority-map iq))))))
+
 ;;  ___                   _               _        _
 ;; | __|_ ___ __  ___ _ _(_)_ __  ___ _ _| |_ __ _| |
 ;; | _|\ \ / '_ \/ -_) '_| | '  \/ -_) ' \  _/ _` | |
