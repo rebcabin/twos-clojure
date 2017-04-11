@@ -69,11 +69,10 @@
                   :message-id   (new-uuid)}))))
 ;;; 5.
 (defspec send-time-lt-receive-time-for-causal-messages
-  10
+  50
   (prop/for-all
    [m (s/gen :time-warp.core/message)]
    (< (:send-time m) (:receive-time m))))
-
 ;;; 6.
 (defn hand-constructed-message []
   (-make-message
@@ -104,7 +103,7 @@
 ;;                        |___/
 ;;; 9.
 (defspec message-pairs-identical-but-for-sign
-  10
+  20
   (prop/for-all
    [[pos neg] (s/gen :time-warp.core/message-pair)]
    (and (=  1 (:sign pos))
@@ -122,7 +121,7 @@
 
 ;;; 10.
 (defspec input-queue-is-monotonic-in-virtual-time
-  10 ;; This takes a long time at 99
+  20 ;; This takes a long time at 99
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (let [times (map second msg-vt-pairs)
@@ -131,21 +130,21 @@
              vt-vt-pairs))))
 ;;; 11.
 (defspec all-messages-in-an-input-queue-are-positive
-  10
+  20
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (every? (fn [[msg vt]] (= 1 (:sign msg)))
            msg-vt-pairs)))
 ;;; 12.
 (defspec input-queue-values-equal-receive-times
-  10
+  20
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (every? (fn [[msg vt]] (= vt (:receive-time msg)))
            msg-vt-pairs)))
 ;;; 13.
 (defspec all-messages-in-an-output-queue-are-negative
-  10
+  20
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/output-queue)]
    (every? (fn [[msg vt]] (= -1 (:sign msg)))
@@ -664,7 +663,7 @@
                  (:iq-priority-map iq-1))))
 ;;; 23.
 (defspec every-vt-value-equals-receive-time-in-an-input-queue
-  10
+  20
   (prop/for-all
    [msg-vt-pairs (s/gen :time-warp.core/input-queue)]
    (every? (fn [[msg vt]] (= (:receive-time msg) vt))
@@ -695,17 +694,16 @@
                count))))
 ;;; 27.
 (defspec inserting-a-new-input-message-into-iq-1-increases-its-count-to-fifty
-  10
+  20
   (prop/for-all
    [m (s/gen :time-warp.core/input-message)]
    (= 50 (-> iq-1
              (insert-message m)
              :iq-priority-map
              count))))
-
 ;;; 28.
 (defspec all-message-ids-in-input-queue-are-unique
-  10
+  20
   (prop/for-all
    [iq (s/gen :time-warp.core/input-queue)]
    (let [mid-set (reduce
