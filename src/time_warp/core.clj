@@ -178,6 +178,11 @@
 ;;; Thanks to James Reeves for inspiring this simplification
 ;;; (https://goo.gl/5USUP9)
 
+;;; TODO: May require a density axiom in the future: "between any two finite
+;;; virtual times there is another virtual time." Supporting that axiom may
+;;; require more type infrastructure. See https://goo.gl/aQzWxv and
+;;; https://goo.gl/fKz8sl.
+
 (s/def ::virtual-time
   (s/with-gen
     (s/and number? #(not (Double/isNaN %)))
@@ -242,6 +247,8 @@
     (-messages-match-ids-with-opposite-signs m1 m2))
   (match-but-id [m1 m2] (-messages-match-but-for-id m1 m2))
   (flip-sign [m] (-message-flip-sign m)))
+
+;;; The function map->tw-message is automatically created.
 
 (s/def ::sender       ::pid)
 (s/def ::send-time    ::virtual-time)
@@ -334,7 +341,7 @@
   ;; A message queue is a collection of pairs of messages and virtual times such
   ;; that the virtual time in each pair matches either the receive-time (for
   ;; input queues) or the send-time (for output queues) of the message in the
-  ;; same pair. 
+  ;; same pair.
   (fetch-bundle   [q  vt])
   ;; Insert a message in a queue, potentially annihilating its antimessage.
   (insert-message [q   m])
