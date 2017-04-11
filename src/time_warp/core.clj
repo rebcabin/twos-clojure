@@ -23,46 +23,43 @@
 
 ;;; DESIGN APPROACH ------------------------------------------------------------------
 
-;;; Each interesting data type comes with a protocol, a record type, a spec, and
-;;; some tests.
+;;; Many interesting data types come with a protocol, a record type, a spec,
+;;; and some tests.
 
-;;; The protocol for each type declares functions that types adhering to the
-;;; protocol must implement. For instance, the MessageQueueT protocol declares
-;;; that every message queue must implement "fetch-bundle," "insert-message
-;;; (with potential annihilation)," and "delete-message-by-mid." These functions
-;;; are identical for both input queues and output queues despite the fact that
-;;; those two types of queues are prioritized differently (by receive-time for
-;;; input queues and by send-times for output queues). The hiding of that
-;;; impertinent difference is useful because it reduces the the visibility of
-;;; unnecessary detail at certain levels of the code, and reduces the size of
-;;; the code overall. Those reductions, in turn, makes it easier to refactor or
-;;; otherwise modify the code as we develop it (standard argument in favor of
+;;; The protocol for each type declares functions that adhering types must
+;;; implement. For instance, the MessageQueueT protocol declares that every
+;;; message queue must implement "fetch-bundle," "insert-message (with potential
+;;; annihilation)," and "delete-message-by-mid." These functions are identical
+;;; for both input queues and output queues even though those two types of
+;;; queues are prioritized differently (by receive-time for input queues and by
+;;; send-times for output queues). Hiding that impertinent difference is useful
+;;; because it reduces unnecessary detail at certain levels of the code, and
+;;; reduces the size of the code overall. Those reductions, in turn, makes it
+;;; easier to change the code as we develop it (standard argument in favor of
 ;;; polymorphism: conceptual economy when one can find a common set of functions
 ;;; that operate on different types).
 
-;;; Having a record for each type serves two purposes: (1) handy constructors
-;;; for instances, (2) a place to "hang" implementations of protocols. For
-;;; instance, there is an input-queue record and an output-queue record, each
-;;; implementing the MessageQueueT protocol. Even when there is only one record
-;;; type implementing a given protocol, the "record" seems the most elegant way
-;;; currently available in Clojure to package the relationships amongst
-;;; protocols, hashmappy data structures like records and priority-maps, and
-;;; specs. There is a discussion of this issue in the Clojure groups [at this
-;;; URL](https://goo.gl/5USUP9).
+;;; Having a record for a type serves three purposes: (1) handy constructors,
+;;; (2) a place to "hang" implementations of protocols, (3) no need to specify
+;;; required fields with clojure.spec. For instance, we do not need to
+;;; laboriously spec each field of a message if we define a record that requires
+;;; those fields. Even when there is only one record type implementing a given
+;;; protocol, the "record" seems the most elegant way to package the
+;;; relationships amongst protocols, hashmappy data structures like records and
+;;; priority-maps, and specs. There is a discussion of this issue in the Clojure
+;;; groups [at this URL](https://goo.gl/5USUP9).
 
 ;;; Specs assert logical properties of (instances of) types. For instance, the
 ;;; spec for an ::input-queue asserts that every instance must be a
 ;;; ::priority-map prioritized on "vals," with "val" being the second element of
-;;; each key-value pair in the priority map. Every "val" must be a virtual time
-;;; and every virtual-time val must equal the receive-time of the message in the
-;;; key position of each key-value pair in the priority map. The spec further
-;;; provides a test generator in which the virtual times are pulled from the
-;;; receive-time fields of messages, as they must be for an input queue, and the
-;;; tests in the main test file, core_test.clj, check this property. They check
-;;; this property with a "defspec" that lives in the test file (see test #23.)
-
-;;; Records act like hashmaps in most (if not all) respects, so they can conform
-;;; to specs written with the spec primitive "s/keys" (see test #8).
+;;; each key-value pair, that is, the sort field in the priority map. Every
+;;; "val" must be a virtual time and every virtual-time val must equal the
+;;; receive-time of the message in the key position of each key-value pair in
+;;; the priority map. The spec further provides a test generator in which the
+;;; virtual times are pulled from the receive-time fields of messages, as they
+;;; must be for an input queue, and the tests in the main test file,
+;;; core_test.clj, check this property. They check this property with a
+;;; "defspec" that lives in the test file (see test #23.)
 
 ;;; NAMING CONVENTIONS ---------------------------------------------------------------
 
@@ -90,7 +87,6 @@
 ;;; TODO: Consider swapping the naming conventions for records and protocols to
 ;;; mitigate the distracting detail about case conversions.
 
-;;; (defrecord virtual-time [vt]
 ;;; (defrecord tw-message   [sender send-time ...]
 ;;; (defrecord input-queue  [iq-priority-map]
 ;;; (defrecord output-queue [oq-priority-map]
@@ -101,7 +97,6 @@
 
 ;;; Protocols are in PascalCase and suffixed with a "T," which means "type."
 
-;;; (defprotocol VirtualTimeT
 ;;; (defprotocol MessageT
 ;;; (defprotocol MessageQueueT
 ;;; (defprotocol StateQueueT
@@ -121,14 +116,15 @@
 
 ;;; (s/def ::mid  uuid?)
 ;;; (s/def ::pid  uuid?)
+
 ;;; (s/def ::sender       ::pid)
 ;;; (s/def ::send-time    ::virtual-time)
 ;;; (s/def ::receiver     ::pid)
-
 ;;; (s/def ::receive-time ::virtual-time)
 ;;; (s/def ::body         any?)
 ;;; (s/def ::sign         #{-1 1})
 ;;; (s/def ::message-id   ::mid)
+
 ;;; (s/def ::potentially-acausal-message-hashmap
 
 ;;; (s/def ::input-message
@@ -205,117 +201,19 @@
 ;;  \ V /| | '_|  _| || / _` | |   | | | | '  \/ -_)
 ;;   \_/ |_|_|  \__|\_,_\__,_|_|   |_| |_|_|_|_\___|
 
-;;; A protocol is natural packaging for an abstract data type (ADT) in Clojure,
-;;; even without a need for polymorphism. Thus we define a VirtualTimeT
-;;; protocol. The final "T" in the name is a concession to the "_t" convention
-;;; in C++ for denoting "types." Protocols are like definitions of abstract
-;;; types or interfaces.
-
-(defprotocol VirtualTimeT
-  "A number with two distinguished values for plus and minus infinity. Minus
-  infinity is less than any virtual time other than minus infinity. Plus
-  infinity is greater than any virtual time other than plus infinity.
-
-  Virtual times are totally ordered, and this is the critical difference to real
-  times, which are only partially ordered. That means that given two real times,
-  we cannot always tell whether one is less than the other: not every pair is a
-  member of the relation (set of pairs) that constitute the \"less-than\"
-  relation. But with two virtual times, we can always tell whether one is less
-  than the other or equal to the other (every pair is in the relation). This
-  definition of \"total order\" is enshrined in a \"compare\" function that
-  Clojure uses to sort a \"priority map.\" See
-  https://github.com/clojure/data.priority-map."
-  (vt-lt [this-vt that-vt])
-  (vt-le [this-vt that-vt])
-  (vt-eq [this-vt that-vt]))
-
-(defn -vt-compare-lt [vt1 vt2]
-  (case (:vt vt1)
-    :vt-negative-infinity
-    (case (:vt vt2)
-      :vt-negative-infinity false
-      #_otherwise true)
-
-    :vt-positive-infinity
-    false
-
-    ;; otherwise: vt1 is a number.
-    (case (:vt vt2)
-      :vt-positive-infinity true
-      :vt-negative-infinity false
-      (< (:vt vt1) (:vt vt2)))))
-
-;;; The virtual-time record type implements VirtualTimeT protocol.
-
-(defrecord virtual-time [vt]
-  VirtualTimeT
-  (vt-lt [this that] (-vt-compare-lt this that))
-  (vt-eq [this that] (= this that))
-  (vt-le [this that] (or (vt-eq this that) (vt-lt this that))))
-
-;;; A couple of global variables.
-
-(def vt-negative-infinity (virtual-time. :vt-negative-infinity))
-(def vt-positive-infinity (virtual-time. :vt-positive-infinity))
-
-;;; Generators for specs and tests.
-
-(def vt-number-gen
-  (gen/bind
-   (gen/large-integer)
-   (fn [vt] (gen/return (virtual-time. vt)))))
-
-(def vt-negative-infinity-gen
-  (gen/return (virtual-time. :vt-negative-infinity)))
-
-(def vt-positive-infinity-gen
-  (gen/return (virtual-time. :vt-positive-infinity)))
-
-;;; Now we have enough to define a spec for virtual time. We could just say that
-;;; a virtual-time is any instance of the virtual-time type, but that's circular
-;;; and therefore deficient; worse, it doesn't allow alternative implementations
-;;; of the protocol. It's better to actually articulate the spec in terms of the
-;;; required values. Thus we don't just say "#(instance?
-;;; time_warp.core.virtual-time %)."
+;;; Thanks to James Reeves for part of this simplification
+;;; (https://goo.gl/5USUP9)
 
 (s/def ::virtual-time
   (s/with-gen
-    ;; A virtual time is either a number or one of the two distinguished values,
-    ;; vt-minus-infinity and vt-plus-infinity.
-
-    ;; The spec combinator "s/or" requires us to furnish "conformance tags,"
-    ;; which Clojure propagates downstream to other spec generators so that they
-    ;; can distinguish the cases. These conformance tags are redundant for us
-    ;; because our distinct cases distinguish themselves and are handled
-    ;; entirely in the VirtualTimeT protocol. Therefore, we need to strip off
-    ;; the conformance tags so that downstream generators, like that for
-    ;; ::input-queue, can manipulate virtual times in a natural fashion. We
-    ;; strip off the conformance tags with an idiom in clojure.spec: "s/and"
-    ;; supplies a place for a "conformer" function. A conformer function defines
-    ;; the conformance values returned by the generator of this spec to other
-    ;; generators. Our conformer function simply strips off the tags; i.e., it's
-    ;; "second." The idiom is to define the spec with "s/and" and a single item:
-    ;; in our case, the "s/or" of the three possibilities.
-    (s/and
-     (s/or
-      :minus-infinity #(vt-eq % :vt-negative-infinity)
-      :plus-infinity  #(vt-eq % :vt-positive-infinity)
-      :number         #(number? (:vt %)))
-     (s/conformer second))
-    ;; We'd like most values generated in tests to be numerical, with the
+    (s/and number? #(not (Double/isNaN %)))
+    ;; We'd like most values generated in tests to be finite, with the
     ;; occasional infinity for spice. Adjust these frequencies to taste.
-    #(gen/frequency [[98 vt-number-gen]
-                     [ 1 vt-negative-infinity-gen]
-                     [ 1 vt-positive-infinity-gen]])))
+    #(gen/frequency [[98 (s/gen number?)]
+                     [ 1 (gen/return Double/NEGATIVE_INFINITY)]
+                     [ 1 (gen/return Double/POSITIVE_INFINITY)]])))
 
 ;;; In the REPL, try (s/exercise ::virtual-time)
-
-;;; EXPERIMENTAL --------------------------------------------------------)
-
-;;; An experimental view of the Time-Warp Universe is as a mesh of causally
-;;; connected spacetime events.
-
-(s/def ::spacetime-event (s/tuple ::pid ::virtual-time))
 
 (comment ---- MESSAGE ---------------------------------------------------)
 ;;  __  __
@@ -324,36 +222,9 @@
 ;; |_|  |_\___/__/__/\__,_\__, \___|
 ;;                        |___/
 
-;;; In classic Time Warp, the sender (space coordinate) and send-time (time
-;;; coordinate) are separated; ditto for receivers and receive-times.
-
-(s/def ::sender       ::pid)
-(s/def ::send-time    ::virtual-time)
-(s/def ::receiver     ::pid)
-(s/def ::receive-time ::virtual-time)
-(s/def ::body         any?)
-(s/def ::sign         #{-1 1})
-(s/def ::message-id   ::mid)
-
-;;; An alternative, experimental view is that space and time coordinates are
-;;; parts of a composite "sspacetime-event" structure.For the experimental
-;;; spacetime mesh.
-
-(s/def ::source-spacetime-event      ::spacetime-event)
-(s/def ::destination-spacetime-event ::spacetime-event)
-
-;;; Messages with receive-time in the virtual past or present are of theoretical
-;;; interest only. We define messages with arbitrary send and receive times as
-;;; "potentially acausal."
-
-;;; See https://clojure.org/guides/spec and search for "s/keys" on that page for
-;;; specification of the "s/keys" function. It lets us define a message as a
-;;; hashmap that must contain the keys listed. The "-un" qualifier recognizes
-;;; unqualified keywords as keys in the hashmap. Quoting the cited guide: "Much
-;;; existing Clojure code does not use maps with namespaced keys and so keys can
-;;; also specify :req-un and :opt-un for required and optional unqualified keys.
-;;; These variants specify namespaced keys used to find their specification, but
-;;; the map only checks for the unqualified version of the keys."
+;;; In classic Time Warp, the sender (space coordinate, process id) and
+;;; send-time (time coordinate, virtual time) are separated; ditto for receivers
+;;; and receive-times. TODO: experimentally, abstract spacetime points.
 
 ;;; Messages satisfy the following protocol on their signs.
 
@@ -370,16 +241,16 @@
   (and (= (:message-id m1) (:message-id m2))
        (= (:sign m1) (- (:sign m2)))))
 
-(defn -messages-contents-match-but-for-id
+(defn -messages-match-but-for-id
   "True iff messages match in all attributes except id; needed for lazy
   cancellation."
   [m1 m2]
-  (and (=     (:sender       m1) (:sender       m2))
-       (vt-eq (:send-time    m1) (:send-time    m2))
-       (=     (:receiver     m1) (:receiver     m2))
-       (vt-eq (:receive-time m1) (:receive-time m2))
-       (=     (:body         m1) (:body         m2))
-       (=     (:sign         m1) (:sign         m2))
+  (and (= (:sender       m1) (:sender       m2))
+       (= (:send-time    m1) (:send-time    m2))
+       (= (:receiver     m1) (:receiver     m2))
+       (= (:receive-time m1) (:receive-time m2))
+       (= (:body         m1) (:body         m2))
+       (= (:sign         m1) (:sign         m2))
        (not (= (:message-id m1) (:message-id m2)))))
 
 (defn -message-flip-sign
@@ -387,28 +258,19 @@
   [msg]
   (assoc msg :sign (- (:sign msg))))
 
-;;; The following record type implements the protocol.
-
 (defrecord tw-message
     [sender   send-time
      receiver receive-time
      body     sign
      message-id]
   MessageT
-
   (match-ids-opposite-signs [m1 m2]
     (-messages-match-ids-with-opposite-signs m1 m2))
-
-  (match-but-id [m1 m2] (-messages-contents-match-but-for-id m1 m2))
-
+  (match-but-id [m1 m2] (-messages-match-but-for-id m1 m2))
   (flip-sign [m] (-message-flip-sign m)))
 
-;;; The following "factory function" provides mnemonic keyword arguments for the
-;;; default constructor automatically generated by "defrecord."
-
 (defn -make-message
-  "Produce a positive message with a fresh, random id and the other attributes
-  given by arguments."
+  "Given a hashmap, produce a tw-message."
   [{:keys [sender   send-time
            receiver receive-time
            body     sign
@@ -418,8 +280,18 @@
                body     sign
                message-id))
 
-;;; See the test file for some conformance examples. An acausal message has
-;;; send-time less than or equal to receive time.
+(s/def ::sender       ::pid)
+(s/def ::send-time    ::virtual-time)
+(s/def ::receiver     ::pid)
+(s/def ::receive-time ::virtual-time)
+(s/def ::body         any?)
+(s/def ::sign         #{-1 1})
+(s/def ::message-id   ::mid)
+
+;;; Messages with receive-time in the virtual past or present are of theoretical
+;;; interest only. We define messages with arbitrary send and receive times as
+;;; "potentially acausal." We spec a hashmap for them just to make it easier to
+;;; generate instances.
 
 (s/def ::potentially-acausal-message-hashmap
   (s/keys :req-un [::sender     ::send-time
@@ -435,21 +307,19 @@
 
 (s/def ::message
   (s/with-gen
-    (s/and ;; ::potentially-acausal-message-hashmap
-           #(vt-lt (:send-time %) (:receive-time %)))
+    (s/and #(instance? time_warp.core.tw-message %)
+           #(< (:send-time %) (:receive-time %)))
     #(gen/fmap -make-message (s/gen ::potentially-acausal-message-hashmap))))
 
 ;;; In the REPL, try (s/exercise ::message)
 
 ;;; Input messages are always positive.
 
-(s/def ::input-message
-  (s/and ::message #(= (:sign %) 1)))
+(s/def ::input-message (s/and ::message #(= (:sign %) 1)))
 
 ;;; Output messages are always negative.
 
-(s/def ::output-message
-  (s/and ::message #(= (:sign %) -1)))
+(s/def ::output-message (s/and ::message #(= (:sign %) -1)))
 
 (comment ---- MESSAGE PAIRS ---------------------------------------------)
 ;;  __  __                            ___      _
@@ -461,14 +331,8 @@
 (s/def ::message-pair
   (s/with-gen
     (s/and (s/tuple ::message ::message)
-           (fn [[m1 m2]] (=     (:message-id   m1) (:message-id   m2)))
-           (fn [[m1 m2]] (=     (:sender       m1) (:sender       m2)))
-           (fn [[m1 m2]] (vt-eq (:send-time    m1) (:send-time    m2)))
-           (fn [[m1 m2]] (=     (:receiver     m1) (:receiver     m2)))
-           (fn [[m1 m2]] (vt-eq (:receive-time m1) (:receive-time m2)))
-           (fn [[m1 m2]] (=     (:body         m1) (:body         m2)))
-           (fn [[m1 m2]] (=     (:sign m1)  1))
-           (fn [[m1 m2]] (=     (:sign m2) -1)))
+           (fn [[m1 m2]] (and (= (:sign m1)  1)
+                              (= (:sign m2) -1))))
     #(gen/bind
       (s/gen ::message)
       (fn [msg] (gen/return [msg (-message-flip-sign msg)])))))
@@ -480,11 +344,13 @@
   [&{:keys [sender   send-time
             receiver receive-time
             body]}]
-  (let [m (-make-message :sender       sender
-                         :send-time    send-time
-                         :receiver     receiver
-                         :receive-time receive-time
-                         :body         body)]
+  (let [m (-make-message {:sender       sender
+                          :send-time    send-time
+                          :receiver     receiver
+                          :receive-time receive-time
+                          :body         body
+                          :sign         1
+                          :message-id   (new-uuid)})]
     [m (-message-flip-sign m)]))
 
 (comment ---- QUEUES ----------------------------------------------------)
@@ -502,9 +368,9 @@
 
 (defprotocol MessageQueueT
   ;; A message queue is a collection of pairs of messages and virtual times such
-  ;; that the virtual time in each pair matches either the receive-time or the
-  ;; send-time of the message in the same pair. The matching virtual times are
-  ;; receive times from an input queue and send times in an output queue.
+  ;; that the virtual time in each pair matches either the receive-time (for
+  ;; input queues) or the send-time (for output queues) of the message in the
+  ;; same pair. 
   (fetch-bundle   [q  vt])
   ;; Insert a message in a queue, potentially annihilating its antimessage.
   (insert-message [q   m])
@@ -513,7 +379,7 @@
   ;; TODO more ...
   )
 
-;;; We write a spec for priority maps just so we can write a test generator.
+;;; Write a spec for priority maps just so we can write a test generator.
 
 (s/def ::priority-map
   (s/with-gen
@@ -521,17 +387,7 @@
     ;; The generator is a function that returns an empty priority map.
     (constantly (gen/return (priority-map)))))
 
-(defn -every-value-a-virtual-time
-  "Check that every value in a sequence of key-value pairs is a valid virtual
-  time."
-  [xs]
-  (every? #(s/valid? ::virtual-time %) (map second xs)))
-
-(defn -make-empty-vt-queue
-  "A virtual-time queue is a priority map of [object vt] pairs, sorted by the
-  virtual-time total ordering function \"-vt-compare-lt.\""
-  []
-  (priority-map-by -vt-compare-lt))
+;;; --------- INPUT QUEUES ----------------------------------------------
 
 ;;  ___                _      ___
 ;; |_ _|_ _  _ __ _  _| |_   / _ \ _  _ ___ _  _ ___
@@ -569,7 +425,7 @@
 ;;; We will have to maintain a separate data structure mapping mid (letters) to
 ;;; the full message.
 ;;;
-;;; ~~> {"a", {:mid "a", :sender ...}, "b", {:mid "b", :sender ...}}
+;;; ~~> {"a" <some-message>, "b" <some-message>, ...}
 ;;;
 ;;; Deleting a message from an input queue is supported by a transactional
 ;;; "dissoc" on both structures.
@@ -581,7 +437,7 @@
 ;;; TODO: For an initial pass, we'll just do linear searches with "filter". They
 ;;; may be faster than principled data structures for small queues anyway.
 
-(defmacro dump [x]
+(defmacro dump "For debugging in the extreme." [x]
   `(let [x# ~x]
      (do (println '~x "~~> ")
          (clojure.pprint/pprint x#)
@@ -590,18 +446,15 @@
 
 (defrecord input-queue [iq-priority-map]
   MessageQueueT
-  ;; Note: {:vt 3} does not equal (virtual-time. 3), so we must dig out the
-  ;; values from the virtual-time maps. TODO: reconsider record / protocol
-  ;; implementations: too heavyweight?
-
   ;; fetch-bundle does not produces a queue, but rather a straight collection of
   ;; messages.
   (fetch-bundle          [q  vt]
     (->> (filter
-          (fn [[msg vt2]] (vt-eq vt vt2))
+          (fn [[msg vt2]] (= vt vt2))
           (:iq-priority-map q))
          (map first)))
   ;; TODO: insert-message is improperly exposed to insertion of duplicates.
+  ;; TODO: annihilation
   (insert-message        [q   m]
     (-> q
         (:iq-priority-map)
@@ -635,19 +488,27 @@
      (s/tuple ::input-message ::virtual-time))
     -input-message-and-receive-time-pair-gen))
 
+(defn -every-value-a-virtual-time
+  "Check that every value in a sequence of key-value pairs is a valid virtual
+  time."
+  [xs]
+  (every? #(s/valid? ::virtual-time %) (map second xs)))
+
 (s/def ::input-queue
   (s/with-gen
     (s/and ::priority-map
            -every-value-a-virtual-time
            #(every? (fn [[msg vt]]
-                      (vt-eq vt (:receive-time msg)))
+                      (= vt (:receive-time msg)))
                     %))
     #(s/gen (s/coll-of
              ::input-message-and-receive-time-pair
-             :into (-make-empty-vt-queue) :gen-max 50))))
+             :into (priority-map) :gen-max 50))))
 
-;;; Try (first (gen/sample (s/gen ::input-queue) 1)) in the REPL to get a
+;;; Try (first (gen/generate (s/gen ::input-queue))) in the REPL to get a
 ;;; randomly generated input queue.
+
+;;; --------- OUTPUT QUEUES ---------------------------------------------
 
 ;;   ___       _             _      ___
 ;;  / _ \ _  _| |_ _ __ _  _| |_   / _ \ _  _ ___ _  _ ___
@@ -668,7 +529,7 @@
   ;; implementations: too heavyweight?
   (fetch-bundle          [q  vt]
     (filter
-     (fn [[msg vt2]] (vt-eq vt vt2))
+     (fn [[msg vt2]] (= vt vt2))
      (:iq-priority-map q)))
   (insert-message        [q   m] nil)
   (delete-message-by-mid [q mid] nil))
@@ -692,11 +553,11 @@
     (s/and ::priority-map
            -every-value-a-virtual-time
            #(every? (fn [[msg vt]]
-                      (vt-eq vt (:send-time msg)))
+                      (= vt (:send-time msg)))
                     %))
     #(s/gen (s/coll-of
              ::output-message-and-send-time-pair
-             :into (-make-empty-vt-queue) :gen-max 50))))
+             :into (priority-map) :gen-max 50))))
 
 ;;  ___ _        _          ___
 ;; / __| |_ __ _| |_ ___   / _ \ _  _ ___ _  _ ___
@@ -757,7 +618,7 @@
 (defn -make-process [&{:keys [event-main  query-main]}]
   (tw-process. event-main query-main
                :vt-negative-infinity
-               (-make-empty-vt-queue) (-make-empty-vt-queue) (-make-empty-vt-queue)
+               (priority-map) (priority-map) (priority-map)
                (new-uuid)))
 
 (defn tw-send
