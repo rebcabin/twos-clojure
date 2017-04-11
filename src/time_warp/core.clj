@@ -21,71 +21,60 @@
 ;;; http://dl.acm.org/citation.cfm?id=37508
 ;;; ftp.cs.ucla.edu/tech-report/198_-reports/870042.pdf
 
-;;; DESIGN APPROACH ------------------------------------------------------------------
+;;; --------- DESIGN APPROACH --------------------------------------------
 
 ;;; Many interesting data types come with a protocol, a record type, a spec,
 ;;; and some tests.
 
-;;; The protocol for each type declares functions that adhering types must
-;;; implement. For instance, the MessageQueueT protocol declares that every
-;;; message queue must implement "fetch-bundle," "insert-message (with potential
-;;; annihilation)," and "delete-message-by-mid." These functions are identical
-;;; for both input queues and output queues even though those two types of
-;;; queues are prioritized differently (by receive-time for input queues and by
-;;; send-times for output queues). Hiding that impertinent difference is useful
-;;; because it reduces unnecessary detail at certain levels of the code, and
-;;; reduces the size of the code overall. Those reductions, in turn, makes it
-;;; easier to change the code as we develop it (standard argument in favor of
-;;; polymorphism: conceptual economy when one can find a common set of functions
-;;; that operate on different types).
+;;; The protocol for each type declares functions. Types that adhere to the
+;;; protocol must implement those functions. For instance, the MessageQueueT
+;;; protocol declares that every message queue must implement "fetch-bundle,"
+;;; "insert-message (with potential annihilation)," and "delete-message-by-mid."
 
-;;; Having a record for a type serves three purposes: (1) handy constructors,
-;;; (2) a place to "hang" implementations of protocols, (3) no need to specify
-;;; required fields with clojure.spec. For instance, we do not need to
-;;; laboriously spec each field of a message if we define a record that requires
-;;; those fields. Even when there is only one record type implementing a given
-;;; protocol, the "record" seems the most elegant way to package the
-;;; relationships amongst protocols, hashmappy data structures like records and
-;;; priority-maps, and specs. There is a discussion of this issue in the Clojure
-;;; groups [at this URL](https://goo.gl/5USUP9).
+;;; Two types implement this protocol: input queues and output queues. The
+;;; signatures of these functions are identical for both types even though those
+;;; two types of queues are prioritized differently (by receive-time for input
+;;; queues and by send-times for output queues).
+
+;;; A record for a type serves three purposes: (1) provide constructors, (2)
+;;; implement protocols, (3) relieve clojure.spec from specifying required
+;;; fields. For instance, we do not need to laboriously spec each field of a
+;;; message if we define a record that requires those fields. Even when there is
+;;; only one record type implementing a given protocol, the "record" seems the
+;;; most elegant way to package the relationships amongst protocols,
+;;; hashmap-like data structures, and specs. There is a discussion of this issue
+;;; in the Clojure groups [at this URL](https://goo.gl/5USUP9).
 
 ;;; Specs assert logical properties of (instances of) types. For instance, the
 ;;; spec for an ::input-queue asserts that every instance must be a
 ;;; ::priority-map prioritized on "vals," with "val" being the second element of
-;;; each key-value pair, that is, the sort field in the priority map. Every
-;;; "val" must be a virtual time and every virtual-time val must equal the
-;;; receive-time of the message in the key position of each key-value pair in
-;;; the priority map. The spec further provides a test generator in which the
-;;; virtual times are pulled from the receive-time fields of messages, as they
-;;; must be for an input queue, and the tests in the main test file,
-;;; core_test.clj, check this property. They check this property with a
+;;; each key-value pair, the sort field in the priority map. Every "val" must be
+;;; a virtual time and every virtual-time must equal the receive-time of the
+;;; message that resides in the key position of each key-value pair in the
+;;; priority map. The spec generates tests in which the virtual times are pulled
+;;; from the receive-time fields of messages, and the tests in the main test
+;;; file, core_test.clj, check this property (somewhat vacuously, because the
+;;; property is true by construction; the test future-proofs us against changes
+;;; in the spec and its test generator). The tests check this property with a
 ;;; "defspec" that lives in the test file (see test #23.)
 
-;;; NAMING CONVENTIONS ---------------------------------------------------------------
+;;; The vacuity of tests that are true by construction is notable and, for now,
+;;; intentional. All mathematical truths are tautologies, just some are more
+;;; obvious than others. Expressly writing down the obvious ones is cheap
+;;; assurance and only bulks up the test file.
 
-;;; DEFRECORD ------------------------------------------------------------------------
+;;; -------- NAMING CONVENTIONS -----------------------------------------
+
+;;; The names of "private-ish" functions begin with a hyphen. Such functions may
+;;; still be called, say for testing, without the fully qualified
+;;; namespace-and-var syntax.
+
+;;; -------- DEFRECORD --------------------------------------------------
 
 ;;; Records are in kebab-case, sometimes prepended with "tw-" to avoid ambiguity
 ;;; with more general ideas like "messages". Records create Java classes in
 ;;; partial snake_case behind the scenes. For instance, the fully qualified name
-;;; of the virtual-time record type is time_warp.core.virtual-time. Try it in
-;;; the REPL: keyboard in (class time_warp.core.virtual-time) and see that the
-;;; type is java.lang.Class. Notice that the namespace portion of the name has
-;;; been converted to snake_case. Contrast the constructor, automatically
-;;; created by
-
-;;; Clojure, which has name time-warp.core/->virtual-time, in kebab-case. Try it
-;;; in the REPL: keyboard in (time-warp.core/->virtual-time 42) and notice that
-;;; the result is an instance of time_warp.core.virtual-time in mixed snake_case
-;;; and kebab-case. Also notice that the call (virtual-time. 42) in the
-;;; time-warp.core (kebab) namespace produces exactly the same result, but the
-;;; fully qualified name of that constructor is time_warp.core.virtual-time,
-;;; with var #'time_warp.core.virtual-time (snake.kebab). Either of the
-;;; following two utterances produces exactly the same results:
-;;; (time_warp.core.virtual-time. 42), (#'time_warp.core.virtual-time. 42).
-
-;;; TODO: Consider swapping the naming conventions for records and protocols to
-;;; mitigate the distracting detail about case conversions.
+;;; of the message record type is time_warp.core.message.
 
 ;;; (defrecord tw-message   [sender send-time ...]
 ;;; (defrecord input-queue  [iq-priority-map]
@@ -93,7 +82,7 @@
 ;;; (defrecord tw-state     [send-time ...]
 ;;; (defrecord tw-process   [event-main ...]
 
-;;; DEFPROTOCOLS ---------------------------------------------------------------------
+;;; -------- DEFPROTOCOLS -----------------------------------------------
 
 ;;; Protocols are in PascalCase and suffixed with a "T," which means "type."
 
@@ -102,7 +91,7 @@
 ;;; (defprotocol StateQueueT
 ;;; (defprotocol ProcessQueueT
 
-;;; PRIMARY SPECS --------------------------------------------------------------------
+;;; -------- PRIMARY SPECS -----------------------------------------------
 
 ;;; Specs for records are autoresolved keywords (double-colon), with names
 ;;; exactly like the records they refer to, with leading "tw-" removed.
@@ -112,7 +101,12 @@
 ;;; (s/def ::state   (s/keys :req-un [::send-time ::body]))
 ;;; (s/def ::process (s/keys :req-un [::event-main ...
 
-;;; SUBORDINATE SPECS ----------------------------------------------------------------
+;;; -------- SUBORDINATE SPECS -------------------------------------------
+
+;;; Time Warp is a Virtual-Time Operating System. It uses some abbreviated
+;;; nomenclature traditional in operating systems like "mid" for "message-id,"
+;;; "pid" for "process-id," and "pcb" for "process-control block." We endeavor
+;;; to make the code self-explanatory, with a few concessions to shorter names.
 
 ;;; (s/def ::mid  uuid?)
 ;;; (s/def ::pid  uuid?)
@@ -140,26 +134,6 @@
 
 ;;; (s/def ::event-main any?) ;; Actually a void-returning function TODO
 ;;; (s/def ::query-main any?) ;; Actually a void-returning function TODO
-
-;;; EXPERIMENTAL SPECS ---------------------------------------------------------------
-
-;;; (s/def ::spacetime-event (s/tuple ::pid ::virtual-time))
-;;; (s/def ::source-spacetime-event      ::spacetime-event)
-;;; (s/def ::destination-spacetime-event ::spacetime-event)
-
-;;; ----------------------------------------------------------------------------------
-
-;;; The names of "private-ish" functions begin with a hyphen. Such functions may
-;;; still be called, say for testing, without the fully qualified
-;;; namespace-and-var syntax, but the hyphen reminds users that private-ish
-;;; functions are part of the implementation rather than of the interface.
-
-;;; ----------------------------------------------------------------------------------
-
-;;; Time Warp is a Virtual-Time Operating System. It uses some abbreviated
-;;; nomenclature traditional in operating systems like "mid" for "message-id,"
-;;; "pid" for "process-id," and "pcb" for "process-control block." We endeavor
-;;; to make the code self-explanatory, with a few concessions to shorter names.
 
 (comment ---- UTILITY FUNCTIONS -----------------------------------------)
 ;;  _   _ _   _ _ _ _          ___             _   _
@@ -201,7 +175,7 @@
 ;;  \ V /| | '_|  _| || / _` | |   | | | | '  \/ -_)
 ;;   \_/ |_|_|  \__|\_,_\__,_|_|   |_| |_|_|_|_\___|
 
-;;; Thanks to James Reeves for part of this simplification
+;;; Thanks to James Reeves for inspiring this simplification
 ;;; (https://goo.gl/5USUP9)
 
 (s/def ::virtual-time
@@ -269,17 +243,6 @@
   (match-but-id [m1 m2] (-messages-match-but-for-id m1 m2))
   (flip-sign [m] (-message-flip-sign m)))
 
-(defn -make-message
-  "Given a hashmap, produce a tw-message."
-  [{:keys [sender   send-time
-           receiver receive-time
-           body     sign
-           message-id]}]
-  (tw-message. sender   send-time
-               receiver receive-time
-               body     sign
-               message-id))
-
 (s/def ::sender       ::pid)
 (s/def ::send-time    ::virtual-time)
 (s/def ::receiver     ::pid)
@@ -309,7 +272,8 @@
   (s/with-gen
     (s/and #(instance? time_warp.core.tw-message %)
            #(< (:send-time %) (:receive-time %)))
-    #(gen/fmap -make-message (s/gen ::potentially-acausal-message-hashmap))))
+    #(gen/fmap map->tw-message
+               (s/gen ::potentially-acausal-message-hashmap))))
 
 ;;; In the REPL, try (s/exercise ::message)
 
@@ -344,13 +308,13 @@
   [&{:keys [sender   send-time
             receiver receive-time
             body]}]
-  (let [m (-make-message {:sender       sender
-                          :send-time    send-time
-                          :receiver     receiver
-                          :receive-time receive-time
-                          :body         body
-                          :sign         1
-                          :message-id   (new-uuid)})]
+  (let [m (map->tw-message {:sender       sender
+                            :send-time    send-time
+                            :receiver     receiver
+                            :receive-time receive-time
+                            :body         body
+                            :sign         1
+                            :message-id   (new-uuid)})]
     [m (-message-flip-sign m)]))
 
 (comment ---- QUEUES ----------------------------------------------------)
