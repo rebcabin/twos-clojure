@@ -23,12 +23,11 @@
 
 ;;; --------- DESIGN APPROACH --------------------------------------------
 
-;;; Many interesting data types come with a protocol, a record type, a spec,
-;;; and some tests.
+;;; Many data types come with a protocol, a record type, a spec, and tests.
 
 ;;; The protocol for each type declares functions. Types that adhere to the
-;;; protocol must implement those functions. For instance, the MessageQueueT
-;;; protocol declares that every message queue must implement "fetch-bundle,"
+;;; protocol implement those functions. For instance, the MessageQueueT protocol
+;;; declares that every message queue must implement "fetch-bundle,"
 ;;; "insert-message (with potential annihilation)," and "delete-message-by-mid."
 
 ;;; Two types implement this protocol: input queues and output queues. The
@@ -36,38 +35,37 @@
 ;;; two types of queues are prioritized differently (by receive-time for input
 ;;; queues and by send-times for output queues).
 
-;;; A record for a type serves three purposes: (1) provide constructors, (2)
-;;; implement protocols, (3) relieve clojure.spec from specifying required
-;;; fields. For instance, we do not need to laboriously spec each field of a
-;;; message if we define a record that requires those fields. Even when there is
-;;; only one record type implementing a given protocol, the "record" seems the
-;;; most elegant way to package the relationships amongst protocols,
-;;; hashmap-like data structures, and specs. There is a discussion of this issue
-;;; in the Clojure groups [at this URL](https://goo.gl/5USUP9).
+;;; A record for a type (1) provides constructors, (2) implements protocols, (3)
+;;; relieves clojure.spec from specifying required fields. For instance, we do
+;;; not need to spec each field of a message if we define a record that requires
+;;; those fields. Even when there is only one record type implementing a given
+;;; protocol, record seems the most elegant way to package the relationships
+;;; amongst protocols, hashmap-like data structures, and specs. There is a
+;;; discussion of this issue in the Clojure groups [at this
+;;; URL](https://goo.gl/5USUP9).
 
 ;;; Specs assert logical properties of (instances of) types. For instance, the
-;;; spec for an ::input-queue asserts that every instance must be a
+;;; spec for an ::input-queue asserts that every input-queue must be a
 ;;; ::priority-map prioritized on "vals," with "val" being the second element of
-;;; each key-value pair, the sort field in the priority map. Every "val" must be
-;;; a virtual time and every virtual-time must equal the receive-time of the
-;;; message that resides in the key position of each key-value pair in the
-;;; priority map. The spec generates tests in which the virtual times are pulled
-;;; from the receive-time fields of messages, and the tests in the main test
-;;; file, core_test.clj, check this property (somewhat vacuously, because the
-;;; property is true by construction; the test future-proofs us against changes
-;;; in the spec and its test generator). The tests check this property with a
-;;; "defspec" that lives in the test file (see test #23.)
+;;; each key-value pair. Every "val" must be a virtual time and every
+;;; virtual-time must equal the receive-time of the message that resides in the
+;;; key position of each key-value pair in the priority map. The spec generates
+;;; tests in which the virtual times are pulled from the receive-time fields of
+;;; messages. The tests in the main test file, core_test.clj, check this
+;;; property (somewhat vacuously, because the property is true by construction;
+;;; the test future-proofs us against changes in the spec and its test
+;;; generator). The tests check this property with a "defspec" that lives in the
+;;; test file (see test #23.)
 
-;;; The vacuity of tests that are true by construction is notable and, for now,
-;;; intentional. All mathematical truths are tautologies, just some are more
-;;; obvious than others. Expressly writing down the obvious ones is cheap
-;;; assurance and only bulks up the test file.
+;;; Tests of assertions that are true by construction is intentional. Expressly
+;;; writing down such obvious cases ones is cheap future-proofing and only bulks
+;;; up the test file.
 
 ;;; -------- NAMING CONVENTIONS -----------------------------------------
 
 ;;; The names of "private-ish" functions begin with a hyphen. Such functions may
 ;;; still be called, say for testing, without the fully qualified
-;;; namespace-and-var syntax.
+;;; namespace-and-var syntax (@#'foobar).
 
 ;;; -------- DEFRECORD --------------------------------------------------
 
@@ -84,7 +82,8 @@
 
 ;;; -------- DEFPROTOCOLS -----------------------------------------------
 
-;;; Protocols are in PascalCase and suffixed with a "T," which means "type."
+;;; Protocols are in PascalCase and suffixed with a "T," which means "type" and
+;;; reminds us of the common C and C++ convention.
 
 ;;; (defprotocol MessageT
 ;;; (defprotocol MessageQueueT
@@ -103,10 +102,9 @@
 
 ;;; -------- SUBORDINATE SPECS -------------------------------------------
 
-;;; Time Warp is a Virtual-Time Operating System. It uses some abbreviated
+;;; Time Warp is a Virtual-Time Operating System. It uses abbreviated
 ;;; nomenclature traditional in operating systems like "mid" for "message-id,"
-;;; "pid" for "process-id," and "pcb" for "process-control block." We endeavor
-;;; to make the code self-explanatory, with a few concessions to shorter names.
+;;; "pid" for "process-id," and "pcb" for "process-control block."
 
 ;;; (s/def ::mid  uuid?)
 ;;; (s/def ::pid  uuid?)
@@ -155,13 +153,13 @@
 ;; |___/\__,_/__/_\__| |___/ .__/\___\__/__/
 ;;                         |_|
 
-(comment ---- MESSAGE AND PROCESS IDS -----------------------------------)
+(comment -------- MESSAGE AND PROCESS IDS -------------------------------)
 
-;;; We don't really need more elaborate types for ::mid and ::pid because they
-;;; don't support an interesting protocol. The only possible benefit seems
+;;; We don't really need more discriminating types for ::mid and ::pid because
+;;; they don't support an interesting protocol. The only possible benefit seems
 ;;; prevention of confusion between the two, as in using an ::mid where a ::pid
 ;;; is expected or vice versa. The risk does not seem greater than the overhead
-;;; of an additional layer of type information. 
+;;; of an additional layer of type information.
 
 (s/def ::mid  uuid?)
 (s/def ::pid  uuid?)
@@ -169,7 +167,7 @@
 (def -new-mid new-uuid)
 (def -new-pid new-uuid)
 
-(comment ---- VIRTUAL TIME ----------------------------------------------)
+(comment -------- VIRTUAL TIME ------------------------------------------)
 ;; __   ___     _             _   _____ _
 ;; \ \ / (_)_ _| |_ _  _ __ _| | |_   _(_)_ __  ___
 ;;  \ V /| | '_|  _| || / _` | |   | | | | '  \/ -_)
@@ -187,7 +185,7 @@
   (s/with-gen
     (s/and number? #(not (Double/isNaN %)))
     ;; We'd like most values generated in tests to be finite, with the
-    ;; occasional infinity for spice. Adjust these frequencies to taste.
+    ;; occasional infinity. Adjust these frequencies to taste.
     #(gen/frequency [[98 (s/gen number?)]
                      [ 1 (gen/return Double/NEGATIVE_INFINITY)]
                      [ 1 (gen/return Double/POSITIVE_INFINITY)]])))
@@ -203,7 +201,8 @@
 
 ;;; In classic Time Warp, the sender (space coordinate, process id) and
 ;;; send-time (time coordinate, virtual time) are separated; ditto for receivers
-;;; and receive-times. TODO: experimentally, abstract spacetime points.
+;;; and receive-times. TODO: Experimentally, abstract spacetime points into a
+;;; separate type.
 
 ;;; Messages satisfy the following protocol on their signs.
 
@@ -259,9 +258,11 @@
 (s/def ::message-id   ::mid)
 
 ;;; Messages with receive-time in the virtual past or present are of theoretical
-;;; interest only. We define messages with arbitrary send and receive times as
-;;; "potentially acausal." We spec a hashmap for them just to make it easier to
-;;; generate instances.
+;;; interest only. Define messages with arbitrary send and receive times as
+;;; "potentially acausal." Spec a hashmap for them to make it easier to generate
+;;; instances. :req-un means "required, unqualified." Spec translates
+;;; namespace-qualified keys to unqualified keys (TODO: Why did we specify
+;;; unqualified keys?)
 
 (s/def ::potentially-acausal-message-hashmap
   (s/keys :req-un [::sender     ::send-time
@@ -271,9 +272,9 @@
 
 ;;; Time-Warp Classic only allows causal messages. We call them just "messages."
 ;;; Note that a message hashmap wrapped in a defrecord, while acting mostly like
-;;; a hashmap, it does not satisfy an s/keys spec. Therefore, we insert an extra
-;;; layer that just generates and filters hashmap. TODO: consult the sages
-;;; whether there is a better way to fulfill the protocol-record-spec pattern.
+;;; a hashmap, does not satisfy an s/keys spec. Therefore, we insert an extra
+;;; layer that just generates and filters hashmaps. TODO: is there a better way
+;;; to fulfill the protocol-record-spec pattern?
 
 (s/def ::message
   (s/with-gen
