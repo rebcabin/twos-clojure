@@ -1720,9 +1720,128 @@ with =instrument= so that the remote service is not invoked:
 
 * TIME WARP OPERATING SYSTEM
 
-This isn't going to be a real operating system, rather a simulation of an
-operating system running in one or more processes or threads, to be determined
-as we develop it.
+This is a simulation of a distributed operating system in one or more
+processes, cores, processors, or threads, to be determined as we develop it.
+
+** DESIGN STRATEGY
+
+Many data types come with a protocol, a record type, a spec, and tests.
+
+The protocol for each type declares functions. Types that adhere to the
+protocol implement those functions. For instance, the =MessageQueueT= protocol
+declares that every message queue must implement =fetch-bundle=,
+=insert-message= (with potential annihilation), and =delete-message-by-mid=.
+
+Two types implement this protocol: input queues and output queues. The
+signatures of these functions are identical for both types even though those
+two types of queues are prioritized differently (by =receive-time= for input
+queues and by =send-time= for output queues).
+
+A record for a type (1) provides constructors, (2) implements protocols, (3)
+relieves clojure.spec from specifying required fields. For instance, we do
+not need to spec each field of a message if we define a record that requires
+those fields. Even when there is only one record type implementing a given
+protocol, =record= seems the most elegant way to package the relationships
+amongst protocols, hashmap-like data structures, and specs.
+
+Specs assert logical properties of (instances of) types. For instance, the
+spec for =::input-queue= asserts that every input queue must be a
+=::priority-map= prioritized on =vals=, with =val's= being the second element of
+each key-value pair. Every =val= must be a virtual time and every
+virtual time must equal the receive time of the message that resides in the
+key position of each key-value pair in the priority map. The spec generates
+tests in which the virtual times are pulled from the receive-time fields of
+messages. The tests in the main test file, core_test.clj, check this
+property (somewhat vacuously, because the property is true by construction;
+the test future-proofs us against changes in the spec and its test
+generator). The tests check this property with a =defspec= that lives in the
+test file (see test #23.)
+
+Tests of assertions that are true by construction is intentional. Expressly
+writing down such obvious cases ones is cheap future-proofing and only bulks
+up the test file, not the core implementation.
+
+*** NAMING CONVENTIONS
+
+The names of "private-ish" functions begin with a hyphen. Such functions may
+still be called, say for testing, without the fully qualified
+namespace-and-var syntax (@#'foobar).
+
+*** DEFRECORD
+
+Records are in kebab-case, sometimes prepended with =tw-= to avoid ambiguity
+with more general ideas like /messages/. Records create Java classes in
+partial snake_case behind the scenes. For instance, the fully qualified name
+of the message record type is =twos_1_10_1.core.message=.
+
+#+begin_src clojure :eval never
+(defrecord tw-message   [sender send-time ...]
+(defrecord input-queue  [iq-priority-map]
+(defrecord output-queue [oq-priority-map]
+(defrecord tw-state     [send-time ...]
+(defrecord tw-process   [event-main ...]
+#+end_src
+
+*** DEFPROTOCOLS
+
+Protocols are in PascalCase and suffixed with a =T=, which means /type/ and
+reminds us of the common C and C++ convention.
+
+#+begin_src clojure :eval never
+(defprotocol MessageT
+(defprotocol MessageQueueT
+(defprotocol StateQueueT
+(defprotocol ProcessQueueT
+#+end_src
+
+*** PRIMARY SPECS
+
+Specs for records are autoresolved keywords (double-colon), with names
+exactly like the records they refer to, with leading =tw-= removed.
+
+#+begin_src clojure :eval never
+(s/def ::virtual-time
+(s/def ::message (s/and ::potentially-acausal-message-hashmap ...
+(s/def ::state   (s/keys :req-un [::send-time ::body]))
+(s/def ::process (s/keys :req-un [::event-main ...
+#+end_src
+
+*** SUBORDINATE SPECS
+
+Time Warp is a Virtual-Time Operating System. It uses abbreviated
+nomenclature traditional in operating systems like =mid= for /message-id/,
+=pid= for /process-id/, and =pcb= for /process-control block/.
+
+#+begin_src clojure :eval never
+(s/def ::mid  uuid?)
+(s/def ::pid  uuid?)
+
+(s/def ::sender       ::pid)
+(s/def ::send-time    ::virtual-time)
+(s/def ::receiver     ::pid)
+(s/def ::receive-time ::virtual-time)
+(s/def ::body         any?)
+(s/def ::sign         #{-1 1})
+(s/def ::message-id   ::mid)
+
+(s/def ::potentially-acausal-message-hashmap
+
+(s/def ::input-message
+(s/def ::output-message
+
+(s/def ::message-pair
+(s/def ::priority-map
+(s/def ::input-message-and-receive-time-pair
+(s/def ::input-queue
+(s/def ::output-message-and-send-time-pair
+(s/def ::output-queue
+(s/def ::local-virtual-time ::virtual-time)
+
+(s/def ::event-main any?) ;; Actually a void-returning function TODO
+(s/def ::query-main any?) ;; Actually a void-returning function TODO
+#+end_src
+
+
 
 * TODO: ORCHESTRA (BEYOND INSTRUMENT) AND EXPOUND (BEYOND EXPLAIN)
 
