@@ -1,5 +1,5 @@
 (ns time-warp.core-test
-  (:require [clojure.data.priority-map       :refer   :all]
+  (:require [clojure.data.priority-map       :refer      :all]
             [clojure.test                    :refer      :all]
             [clojure.test.check              :as           tc]
             [clojure.test.check.clojure-test :refer [defspec]]
@@ -726,5 +726,3 @@
 ;;  / _ \ _  _ ___ _  _ ___
 ;; | (_) | || / -_) || / -_)
 ;;  \__\_\\_,_\___|\_,_\___|
-
-

@@ -1,0 +1,48 @@
+(ns twos-1-10-1.core
+  (:require [clojure.spec.alpha        :as         s]
+            ; [clojure.spec.gen          :as       gen]
+            [clojure.data.priority-map :refer   :all])
+  (:gen-class))
+
+(comment ---- UTILITY FUNCTIONS -----------------------------------------)
+;;  _   _ _   _ _ _ _          ___             _   _
+;; | | | | |_(_) (_) |_ _  _  | __|  _ _ _  __| |_(_)___ _ _  ___
+;; | |_| |  _| | | |  _| || | | _| || | ' \/ _|  _| / _ \ ' \(_-<
+;;  \___/ \__|_|_|_|\__|\_, | |_| \_,_|_||_\__|\__|_\___/_||_/__/
+;;                      |__/
+
+(defn new-uuid
+  "Generate a type-4 UUID with a strong pseudo-random number generator (PRNG)"
+  []
+  (java.util.UUID/randomUUID))
+
+(defn -main
+  "I don't do a whole lot ... yet."
+  [& args]
+  (println "Hello, World!"))
+
+(comment -------- VIRTUAL TIME ------------------------------------------)
+;; __   ___     _             _   _____ _
+;; \ \ / (_)_ _| |_ _  _ __ _| | |_   _(_)_ __  ___
+;;  \ V /| | '_|  _| || / _` | |   | | | | '  \/ -_)
+;;   \_/ |_|_|  \__|\_,_\__,_|_|   |_| |_|_|_|_\___|
+
+;;; Thanks to James Reeves for inspiring this simplification
+;;; (https://groups.google.com/forum/#!topic/clojure/oe1Ch1oSlLk)
+
+;;; TODO: May require a density axiom in the future: "between any two finite
+;;; virtual times there is another virtual time." Supporting that axiom may
+;;; require more type infrastructure. See
+;;; https://gist.github.com/rebcabin/1ae83851865680e60e9d1c005716a933
+;;; https://gist.github.com/rebcabin/c7095efeb8c50b857c2c4e566db7e37d
+
+(s/def ::virtual-time
+  (s/with-gen
+    (s/and number? #(not (Double/isNaN %)))
+    ;; We'd like most values generated in tests to be finite, with the
+    ;; occasional infinity. Adjust these frequencies to taste.
+    #(gen/frequency [[98 (s/gen number?)]
+                     [ 1 (gen/return Double/NEGATIVE_INFINITY)]
+                     [ 1 (gen/return Double/POSITIVE_INFINITY)]])))
+
+;;; In the REPL, try (s/exercise ::virtual-time)

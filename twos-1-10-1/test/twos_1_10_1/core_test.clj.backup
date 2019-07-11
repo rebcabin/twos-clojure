@@ -1,0 +1,10 @@
+(ns twos-1-10-1.core-test
+  (:require [clojure.test         :refer :all]
+            [clojure.spec.alpha   :as    s]
+            [twos-1-10-1.core     :refer :all]))
+
+(def vt-gen (s/gen :time-warp.core/virtual-time))
+
+(deftest a-test
+  (testing "FIXME, I fail."
+    (is (= 1 1))))

@@ -1,0 +1,2097 @@
+#+TODO: TODO STARTED(!) SUSPENDED(!) BLOCKED(!) DELEGATED(!) ABANDONED(!) DONE
+
+#+STARTUP: latexpreview inlineimages showall
+#+TITLE: QUASI-FORMAL DESIGN FOR TIME WARP
+#+AUTHOR: Brian Beckman
+#+CREATOR: Emacs 26.2 of 2019-04-12, org version: 9.2.2
+# #+DATE:
+# #+EXPORTFILENAME:
+#+EMAIL: bbeckman@amazon.com
+
+#  _        _____   __  __  ___         _         _
+# | |   __ |_   _|__\ \/ / | _ \_ _ ___| |_  _ __| |___
+# | |__/ _` || |/ -_)>  <  |  _/ '_/ -_) | || / _` / -_)
+# |____\__,_||_|\___/_/\_\ |_| |_| \___|_|\_,_\__,_\___|
+
+# FOR DOCUMENTATION OF THESE OPTIONS, see 12.2, Export Settings of the Org Info
+# Manual. The following is exhaustive as of June 2019
+
+# #+OPTIONS: creator:comment
+# #+OPTIONS: d:(not "LOGBOOK")  # drawers to include or exclude
+
+
+#+OPTIONS: ':t                # export smart quotes
+#+OPTIONS: *:t                # export emphasized text
+#+OPTIONS: -:t                # conversion of special strings
+#+OPTIONS: ::t                # fixed-width sections
+#+OPTIONS: <:t                # time/date active/inactive stamps
+#+OPTIONS: H:6                # number of headline levels to export
+#+OPTIONS: \n:nil             # preserve line breaks
+#+OPTIONS: ^:nil              # TeX-like syntax for sub- and super-scripts
+#+OPTIONS: arch:headline      # archived trees
+#+OPTIONS: author:t           # toggle inclusion of author name on export
+#+OPTIONS: broken-links:mark  # mark in output
+#+OPTIONS: c:nil              # clock keywords
+#+OPTIONS: creator:nil        # toggle
+#+OPTIONS: d:nil              # drawers to include or exclude
+#+OPTIONS: date:t             # toggle
+#+OPTIONS: e:t                # entities
+#+OPTIONS: email:nil          # do or don't export my email
+#+OPTIONS: f:t                # footnotes
+#+OPTIONS: inline:t           # export inline tasks?
+#+OPTIONS: num:t              # section numbers
+#+OPTIONS: p:nil              # toggle export of planning information
+#+OPTIONS: pri:nil            # priority cookies
+#+OPTIONS: prop:nil           # include property drawers? or list to include?
+#+OPTIONS: stat:t             # statistics cookies?
+#+OPTIONS: tags:t             # org-export-with-tags? (what's a "tag"?)
+#+OPTIONS: tasks:t            # include TODO items ("tasks" some complexity here)
+#+OPTIONS: tex:t              # exports inline LaTeX
+#+OPTIONS: timestamp:t        # creation timestamp in the exported file?
+#+OPTIONS: toc:2              # set level limit in TOC or nil to exclude
+#+OPTIONS: todo:t             # inclusion of actual TODO keyword
+#+OPTIONS: |:t                # include tables
+
+#+LaTeX_HEADER: \usepackage{amsmath}
+#+LaTeX_HEADER: \usepackage{interval}  % must install texlive-full
+#+LaTeX_HEADER: \usepackage[shortcuts]{extdash}
+
+#+LaTeX_HEADER: \usepackage[top=0.90in,bottom=0.55in,left=0.75in,right=0.75in,includefoot]{geometry}
+# #+LaTeX_HEADER: \usepackage{palatino}
+#+LaTeX_HEADER: \usepackage[euler-digits,euler-hat-accent]{eulervm}
+#+LaTeX_HEADER: \setlength{\parskip}{1em}
+#+LaTeX_HEADER: \setlength{\parindent}{0em}
+
+#+LaTeX_HEADER: \usepackage{siunitx}
+#+LaTeX_HEADER: \usepackage{braket}
+#+LATEX_HEADER: \usepackage{fancyhdr}
+#+LATEX_HEADER: \pagestyle{fancyplain}
+#+LATEX_HEADER: \lhead{}
+#+LATEX_HEADER: \chead{Amazon Confidential}
+#+LATEX_HEADER: \rhead{}
+#+LATEX_HEADER: \lfoot{Amazon Confidential}
+#+LATEX_HEADER: \cfoot{\thepage}
+#+LATEX_HEADER: \rfoot{}
+#+LATEX_HEADER: \usepackage{lineno}
+
+#+LATEX_HEADER: \linenumbers
+
+#+LATEX_HEADER_EXTRA: \usepackage{mdframed}
+
+# #+LATEX_HEADER_EXTRA: \BeforeBeginEnvironment{minted}{\begin{mdframed}}
+# #+LATEX_HEADER_EXTRA: \AfterEndEnvironment{minted}{\end{mdframed}}
+
+#                                                    _
+#  _ _  _____ __ __  __ ___ _ __  _ __  __ _ _ _  __| |___
+# | ' \/ -_) V  V / / _/ _ \ '  \| '  \/ _` | ' \/ _` (_-<
+# |_||_\___|\_/\_/  \__\___/_|_|_|_|_|_\__,_|_||_\__,_/__/
+
+#+LaTeX_HEADER: \newcommand\definedas{\stackrel{\text{\tiny def}}{=}}
+
+#+SELECT_TAGS: export
+#+STARTUP: indent
+
+#+begin_comment
+#+LaTeX_HEADER: \usepackage{draftwatermark}
+#+begin_export latex
+% \SetWatermarkFontSize{5cm}
+% \SetWatermarkLightness{0.95}
+\SetWatermarkColor[rgb]{1, 0.70, 0.70}
+\SetWatermarkScale{1.0}
+\SetWatermarkText{
+  \shortstack{
+    PRELIMINARY DRAFT\\[1em]DO NOT SHARE\\[1em]SHRED AFTER READING
+  } }
+#+end_export
+#+end_comment
+
+#+LaTeX_CLASS_OPTIONS: [10pt,oneside,x11names]
+
+* INTRODUCTION
+
+Leslie Lamport said, roughly
+
+#+begin_quote
+/Thinking is good. Writing is Nature's way of showing you how sloppy your thinking is. Mathematics is Nature's way of showing you how sloppy your writing is. Formal mathematics is Nature's way of showing you how sloppy your Mathematics is./
+#+end_quote
+
+/Formal mathematics/ is machine-checked mathematics. A /formal spec/ is a
+statement in formal mathematics of your system's static and dynamic properties.
+In Clojure, specs are Boolean-valued properties---predicate functions---that
+depend on the internal state variables of the system.
+
+Writing a spec is an art rather than a science. A spec should constrain your
+system to do what it's supposed to do and to not do what it's not supposed to
+do. If your spec is too loose, it won't constrain your system. For example,
+every system trivially satisfies a spec that always says /true/. That's a valid
+spec, but it's not useful, because your system might crash or go into an
+infinite loop or launch the missiles, and still satisfy the spec. If your spec
+is too tight, your system might not generalize well. For example, if you write a
+spec that requires all outputs from a random-number generator to be positive,
+then you'll never get a zero or a negative random number. That may be exactly
+what you want, or it may be a sloppy spec that breaks later when you need
+non-positive randoms or, worse, doesn't express what you really wanted, which
+was non-negative randoms.
+
+A /formal verification/ or /certification/ is a proof that your system satisfies
+a spec. I define a /quasi-formal/ verification as a proof that your system
+/probably/ satisfies a spec. To do a quasi-formal verification, Clojure feeds
+random data into the system and then checks the spec. Clojure uses your spec to
+generate random input data. You should formally specify the domains of all your
+inputs. Domains are, sets, like the integers, or the floating-point numbers, or
+rows following some SQL schema. Clojure maliciously chooses values from the
+domains, values likely to cause problems with software in general, like $0$,
+$-\infty$, =NaN=, empty strings, null pointers, rows with null values in the
+columns. When Clojure finds values that violate the spec, it /shrinks/ them,
+i.e., searches for nearby but smaller examples that violate the same property.
+Clojure presents the shrunken cases to you.
+
+Often, quasi-formal verification is the best we can do because a logical proof
+or an exhaustive test of all possible states of your system is not practically
+feasible. If either or both are feasible, do them! Yes, really do them! But also
+do quasi-formal verification because you can do it interactively. At interactive
+speed, quasi-formal verification is useful because it forces
+developers to think. An example of exposing subtle bugs in a seemingly trivial
+program appears in chapter [[sec:testing]].
+
+We have a lot of experience with Time Warp and the aim of this document is to
+write a great spec for it.
+
+You may skip the warm-ups chapter, [[sec:warm-ups]], unless you want an interactive
+tutorial about spec.
+
+#+begin_comment
+In a formally verified spec, computer software checks all proofs. I know of
+three ways to check a proof by computer: logically; by exhaustive testing; and
+by spot-checking. All three are in common use, and it is easy to find success
+stories about them.
+
+In this document, we do not pursue logical proof or exhaustive testing because
+they're not as practical as spot-checking. Logical proof can be very
+complicated, and even undecidable. Exhaustive testing is not feasible if the
+state space is too large, say with a few floating-point variables.
+
+Spot-checking only verifies that some code /probably/ adheres to a spec, but it is
+very useful even if it only forces developers to think. There is an example in
+[[sec:testing]] of a seemingly trivial program that has hidden bugs revealed by
+spot-checking a formal spec.
+
+For a logical proof, at least with traditional Boolean logic and
+set theory, we must specify all domains---sets and membership predicates, and we
+need machinery for the predicate calculus.
+#+end_comment
+
+#+begin_comment
+I have prototyped a proof assistant in Mathematica along
+these lines.[fn:mathdragon] Wikipedia has several worthwhile articles on
+Automatic Theorem Proving, Interactive Theorem Proving, and Proof Assistants.
+#+end_comment
+
+#+begin_comment
+An example of sloppy mathematics that
+doesn't survive a formal check concerns dimensions of matrices. Mathematicians
+often finesse (i.e., "ignore") the difference between a column vector and a
+vector. A column vector is a matrix with one column. You can only contract
+("matrix-multiply") it on the left with a matrix that has the same number of
+columns that the column vector has rows. A vector is a flattened list. You can
+contract it on the left with a matrix that has the same number of columns as the
+vector has elements, in which case you might be temporarily pretending---without
+saying so---that the vector is a column vector. But you can also contract a
+vector on the right with a matrix that has the same number of rows as the vector
+has elements. In that case, you might be silently pretending that the vector is
+a row vector: a matrix with one row. However, it's so routine to multiply
+vectors by matrices that you probably do it---both ways---without noticing that
+you might be cheating. In fact, both Python's =numpy= and Wolfram's Mathematica
+will let you cheat and not tell you anything. Thus, I say, that these tools
+/promote/ sloppy thinking, at least in this case, rather than inhibit it, as
+they might. Some people will complain that a distinction between vectors and
+column vectors or row vectors is merely pedantic, but it's not, as you will find
+out in non-orthogonal coordinate frames, for example. Column vectors are
+contravariant and row vectors are covariant and the distinction matters, a lot.
+Code that treats them adroitly as vectors will fail to generalize.
+
+If you have a proof checker, you can't get with such cheating if you
+appropriately encode the domains of column vectors, row vectors, and matrices.
+The theorem prover won't let you exploit the accident that a vector happens to
+have the right number of elements. A vector has the wrong /type/ to be
+multiplied by a matrix. You must transform it into a column vector or into a row
+vector.
+
+Proof checking by logical analysis is more than mere type-checking, however,
+although type checking is a valuable part of proof checking. Once the types have
+been checked, a proof checker goes further to verify all assertions against
+axioms. For example, we may assert that a random-number generator produces
+samples that are greater than or equal to 0 and strictly less than 1. A formal
+theorem prover will make you prove it based on the properties of computer
+numbers and on all the details of your algorithm.
+#+end_comment
+
+#+begin_comment
+Exhaustive checking is typified by the model checker for Lamport's TLA+. TLA+ is
+a formal language for specifying systems in the Temporal Logic of Actions. In
+this logic, a system undergoes transitions from one state to another and a
+designer writes bits of predicate calculus that must be true in various states.
+The logic is called "temporal" because it includes assertions like "eventually"
+and "never," which pertain to entire, usually infinite, sequences of states.
+
+Lamport's model checker for TLA+ checks all assignments of values to variables
+and checks the assertions. It's not uncommon for model checking in TLA+ to take
+weeks of computer time on hundreds of machines. Such exhaustive checking is as
+good as a theorem, but it's not feasible when there are too many states and
+transitions to be checked.
+#+end_comment
+
+* WARM-UPS
+<<sec:warm-ups>>
+
+Skip this chapter if you don't want a tutorial on Clojure.spec. It's mostly
+quoted from the official Clojure docs, though we have added a few wrinkles
+that we write about in later chapters.
+
+Follow along with the URL below. This chapter is mostly code with very little
+prose because that URL has the prose. I copied the examples here just to
+limber up my fingers and to get my mind right.
+
+https://clojure.org/guides/spec
+
+** Is Clojure working at all?
+
+=C-c C-c= in the following block of code should produce today's date. If clojure
+is not correctly started, a message will appear in the minibuffer stating
+=Wrong type argument...=.
+
+#+begin_src clojure
+(java.util.Date.)
+#+end_src
+
+#+RESULTS:
+: #inst "2019-07-10T01:07:48.275-00:00"
+
+If you get =Wrong type argument...=, issue emacs command =cider-jack-in=, wait
+for it to return, then try again. If none of that works, Google about cider and
+emacs.
+
+That command, if working, will invoke the following project file:
+
+#+begin_src clojure :tangle test.clj :eval never
+(defproject twos-1-10-1 "0.1.0-SNAPSHOT"
+  :description "FIXME: write description"
+  :url "http://example.com/FIXME"
+  :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
+            :url "https://www.eclipse.org/legal/epl-2.0/"}
+  :dependencies [[org.clojure/clojure           "1.10.0"]
+                 [org.clojure/test.check        "0.9.0" ]
+                 [org.clojure/data.priority-map "0.0.10"]
+                 [org.clojure/algo.monads       "0.1.6" ] ]
+                 ]
+  :main ^:skip-aot twos-1-10-1.core
+  :target-path "target/%s"
+  :profiles {:uberjar {:aot :all}})
+#+end_src
+
+(TODO: org-babel-tangle inserts =(ns user)= or =(ns two-1-10-1.core)= at the
+beginning of the project file, and that may not be suitable. The elisp code that
+inserts that expression is not easy to find.)
+
+(TODO: this experimental org headline must not have the prefix "COMMENT" lest
+=org-babel-tangle= not tangle all blocks)
+
+** Require the spec package
+
+#+begin_src clojure :results none
+(require '[clojure.spec.alpha :as s])
+#+end_src
+
+** Test s/conform
+
+#+begin_src clojure :exports both
+(s/conform even? 1000)
+#+end_src
+
+#+RESULTS:
+: 1000
+
+#+begin_src clojure :exports both
+(s/conform even? 1001)
+#+end_src
+
+#+RESULTS:
+: :clojure.spec.alpha/invalid
+
+** Test s/valid?
+
+#+begin_src clojure :exports both
+(s/valid? even? 1000)
+#+end_src
+
+#+RESULTS:
+: true
+
+#+begin_src clojure :exports both
+(s/valid? even? 1001)
+#+end_src
+
+#+RESULTS:
+: false
+
+** Test sets as predicates
+
+This import works best when outside the block that follows it
+
+#+begin_src clojure :exports both
+(import java.util.Date)
+#+end_src
+
+#+RESULTS:
+: java.util.Date
+
+All the following should be true:
+
+#+begin_src clojure :exports both
+  (every? true?
+          [(s/valid? nil? nil)
+           (s/valid? string? "abc")
+
+           (s/valid? #(> % 5) 10)
+           (not (s/valid? #(> % 5) 0))
+
+           (s/valid? inst? (java.util.Date.))
+
+           (s/valid? #{:club :diamond :heart :spade} :club)
+           (not (s/valid? #{:club :diamond :heart :spade} 42)) ])
+#+end_src
+
+#+RESULTS:
+: true
+
+#+begin_src clojure :exports both
+  (ns my.domain (:require [clojure.spec.alpha :as s]))
+  ( ->> [ (s/def ::date inst?)
+          (s/def ::suit #{:club :diamond :heart :spade})
+          (s/valid?  ::date (java.util.Date.))
+          (= :club (s/conform ::suit :club)) ]
+        (drop 2) (every? true?))
+#+end_src
+
+#+RESULTS:
+: true
+
+** Test doc
+
+(TODO: Sometimes, I cannot access namespace =clojure.repl=. Workaround is to
+fully qualify the =doc= symbol.)
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (clojure.repl/doc ::date)
+  (clojure.repl/doc ::suit)
+#+end_src
+
+#+RESULTS:
+: -------------------------
+: :my.domain/date
+: Spec
+:   inst?
+: -------------------------
+: :my.domain/suit
+: Spec
+:   #{:spade :heart :diamond :club}
+
+** Test =s/or=
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  ( ->> [ (s/def ::name-or-id (s/or :name string? :id int?))
+
+          (s/valid? ::name-or-id "abc")
+          (s/valid? ::name-or-id 100)
+          (not (s/valid? ::name-or-id :foo)) ]
+
+        (drop 1) (every? true?))
+#+end_src
+
+#+RESULTS:
+: true
+
+** Test =explain=
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain ::name-or-id :foo)
+#+end_src
+
+#+RESULTS:
+: :foo - failed: string? at: [:name] spec: :my.domain/name-or-id
+: :foo - failed: int? at: [:id] spec: :my.domain/name-or-id
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (clojure.pprint/pprint
+    (s/explain-data ::name-or-id :foo))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+#:clojure.spec.alpha{:problems
+                     ({:path [:name],
+                       :pred clojure.core/string?,
+                       :val :foo,
+                       :via [:my.domain/name-or-id],
+                       :in []}
+                      {:path [:id],
+                       :pred clojure.core/int?,
+                       :val :foo,
+                       :via [:my.domain/name-or-id],
+                       :in []}),
+                     :spec :my.domain/name-or-id,
+                     :value :foo}
+#+end_example
+
+** Test Entity Maps
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
+  (s/def ::email-type (s/and string? #(re-matches email-regex %)))
+
+  (s/def ::acctid     int?)
+  (s/def ::first-name string?)
+  (s/def ::last-name string?)
+  (s/def ::email     ::email-type)
+
+  (s/def ::person (s/keys :req [::first-name ::last-name ::email]
+                          :opt [::phone]))
+  (println *ns*)
+#+end_src
+
+#+RESULTS:
+: #namespace[my.domain]
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/valid? ::person
+    {::first-name "Bugs"
+     ::last-name "Bunny"
+     ::email "bugs@example.com"})
+#+end_src
+
+#+RESULTS:
+: true
+
+I can't get the following to word wrap despite
+https://www.rosettacode.org/wiki/Word_wrap#Clojure:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain ::person {::first-name "Bugs"})
+#+end_src
+
+#+RESULTS:
+: #:my.domain{:first-name "Bugs"} - failed: (contains? % :my.domain/last-name) spec: :my.domain/person
+: #:my.domain{:first-name "Bugs"} - failed: (contains? % :my.domain/email) spec: :my.domain/person
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain ::person
+             {::first-name "Bugs"
+              ::last-name "Bunny"
+              ::email "n/a"})
+#+end_src
+
+#+RESULTS:
+: "n/a" - failed: (re-matches email-regex %) in: [:my.domain/email] at: [:my.domain/email] spec: :my.domain/email-type
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def :unq/person
+    (s/keys :req-un [::first-name ::last-name ::email]
+            :opt-un [::phone]))
+
+  (s/conform :unq/person
+             {:first-name "Bugs"
+              :last-name "Bunny"
+              :email "bugs@example.com"})
+  ;;=> {:first-name "Bugs", :last-name "Bunny", :email "bugs@example.com"}
+#+end_src
+
+#+RESULTS:
+: :unq/person{:first-name "Bugs", :last-name "Bunny", :email "bugs@example.com"}
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain :unq/person
+             {:first-name "Bugs"
+              :last-name "Bunny"
+              :email "n/a"})
+  ;; "n/a" - failed: (re-matches email-regex %) in: [:email] at: [:email]
+  ;;   spec: :my.domain/email-type
+
+  (s/explain :unq/person
+             {:first-name "Bugs"})
+  ;; {:first-name "Bugs"} - failed: (contains? % :last-name) spec: :unq/person
+  ;; {:first-name "Bugs"} - failed: (contains? % :email) spec: :unq/person
+#+end_src
+
+#+RESULTS:
+: "n/a" - failed: (re-matches email-regex %) in: [:email] at: [:email] spec: :my.domain/email-type
+: {:first-name "Bugs"} - failed: (contains? % :last-name) spec: :unq/person
+: {:first-name "Bugs"} - failed: (contains? % :email) spec: :unq/person
+
+If the preceding two are run without =(ns my.domain)=, the last one reports
+=Success!=. Why? Because the spec, if evaluated in the default namespace
+=twos-1-10-1.core= merely demands the presence of the unqualified keyword
+=:email=, "unqualified" meaning "not in the namespace." Because there is no
+conformance spec =::email= in =twos-1-10-1.core=, Clojure.spec doesn't do a
+deeper check.
+
+We disable the evaluation of these blocks because evaluating them messes up the
+internal state of Clojure.spec and requires us to re-evaluate things above. Just
+remember that namespaces are tricky; the authors of Clojure admit so:
+https://clojure.org/guides/repl/navigating_namespaces.
+
+*NOTICE* =:eval never= and =begin_example= for the following. Do not evaluate them.
+
+#+begin_src clojure :eval never
+  (s/def :unq/person
+    (s/keys :req-un [::first-name ::last-name ::email]
+            :opt-un [::phone]))
+
+  (s/conform :unq/person
+             {:first-name "Bugs"
+              :last-name "Bunny"
+              :email "bugs@example.com"})
+  ;;=> {:first-name "Bugs", :last-name "Bunny", :email "bugs@example.com"}
+#+end_src
+
+#+begin_example
+: :unq/person{:first-name "Bugs", :last-name "Bunny", :email "bugs@example.com"}
+#+end_example
+
+#+begin_src clojure :results output :eval never
+  (s/explain :unq/person
+             {:first-name "Bugs"
+              :last-name "Bunny"
+              :email "n/a"})
+  ;; "n/a" - failed: (re-matches email-regex %) in: [:email] at: [:email]
+  ;;   spec: :my.domain/email-type
+
+  (s/explain :unq/person
+             {:first-name "Bugs"})
+  ;; {:first-name "Bugs"} - failed: (contains? % :last-name) spec: :unq/person
+  ;; {:first-name "Bugs"} - failed: (contains? % :email) spec: :unq/person
+#+end_src
+
+#+begin_example
+: Success!
+: {:first-name "Bugs"} - failed: (contains? % :last-name) spec: :unq/person
+: {:first-name "Bugs"} - failed: (contains? % :email) spec: :unq/person
+#+end_example
+
+** Test records
+
+#+begin_src clojure :results output :exports both
+(ns my.domain)
+(def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
+(s/def ::email-type (s/and string? #(re-matches email-regex %)))
+
+(s/def ::acctid     int?)
+(s/def ::first-name string?)
+(s/def ::last-name string?)
+(s/def ::email     ::email-type)
+
+(s/def ::person (s/keys :req [::first-name ::last-name ::email]
+                        :opt [::phone]))
+(println *ns*)
+#+end_src
+
+#+RESULTS:
+: #namespace[my.domain]
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defrecord Person [first-name last-name email phone])
+
+  (s/explain :unq/person
+             (->Person "Bugs" nil nil nil))
+;; nil - failed: string? in: [:last-name] at: [:last-name] spec: :my.domain/last-name
+;; nil - failed: string? in: [:email] at: [:email] spec: :my.domain/email-type
+#+end_src
+
+#+RESULTS:
+: nil - failed: string? in: [:last-name] at: [:last-name] spec: :my.domain/last-name
+: nil - failed: string? in: [:email] at: [:email] spec: :my.domain/email-type
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/conform :unq/person
+    (->Person "Bugs" "Bunny" "bugs@example.com" nil))
+#+end_src
+
+#+RESULTS:
+: #my.domain.Person{:first-name "Bugs", :last-name "Bunny", :email "bugs@example.com", :phone nil}
+
+** Test keyword args
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def ::port number?)
+  (s/def ::host string?)
+  (s/def ::id keyword?)
+  (s/def ::server (s/keys* :req [::id ::host] :opt [::port]))
+  (clojure.pprint/pprint
+   (s/conform ::server [::id :s1 ::host "example.com" ::port 5555]))
+#+end_src
+
+#+RESULTS:
+: #:my.domain{:id :s1, :host "example.com", :port 5555}
+
+** Test key-spec merges
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def :animal/kind string?)
+  (s/def :animal/says string?)
+  (s/def :animal/common (s/keys :req [:animal/kind :animal/says]))
+  (s/def :dog/tail? boolean?)
+  (s/def :dog/breed string?)
+  (s/def :animal/dog (s/merge :animal/common
+                              (s/keys :req [:dog/tail? :dog/breed])))
+  (println (s/valid? :animal/dog
+                     {:animal/kind "dog"
+                      :animal/says "woof"
+                      :dog/tail? true
+                      :dog/breed "retriever"}))
+#+end_src
+
+#+RESULTS:
+: true
+
+Notice the specs above are not in the namespace.
+
+#+begin_src clojure :results output :exports both
+  ; (ns my.domain) ;; <-- UNCOMMENT to make an error
+  (clojure.repl/doc :animal/kind)
+#+end_src
+
+#+RESULTS:
+: -------------------------
+: :animal/kind
+: Spec
+:   string?
+
+** Test multi-spec
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def :event/type keyword?)
+  (s/def :event/timestamp int?)
+  (s/def :search/url string?)
+  (s/def :error/message string?)
+  (s/def :error/code int?)
+
+  (defmulti event-type :event/type)
+  (defmethod event-type :event/search [_]
+    (s/keys :req [:event/type :event/timestamp :search/url]))
+  (defmethod event-type :event/error [_]
+    (s/keys :req [:event/type :event/timestamp :error/message :error/code]))
+
+  (s/def :event/event (s/multi-spec event-type :event/type))
+
+  (println
+   (every? true?
+           [(s/valid? :event/event
+                      {:event/type :event/search
+                       :event/timestamp 1463970123000
+                       :search/url "https://clojure.org"})
+
+            (s/valid? :event/event
+                      {:event/type :event/error
+                       :event/timestamp 1463970123000
+                       :error/message "Invalid host"
+                       :error/code 500})]))
+#+end_src
+
+#+RESULTS:
+: true
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain :event/event
+    {:event/type :event/restart})
+#+end_src
+
+#+RESULTS:
+: #:event{:type :event/restart} - failed: no method at: [:event/restart] spec: :event/event
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain :event/event
+    {:event/type :event/search
+     :search/url 200})
+#+end_src
+
+#+RESULTS:
+: 200 - failed: string? in: [:search/url] at: [:event/search :search/url] spec: :search/url
+: {:event/type :event/search, :search/url 200} - failed: (contains? % :event/timestamp) at: [:event/search] spec: :event/event
+
+*** Open types
+
+Add a new type to =:event/event= above:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defmethod event-type :event/restart [_]
+    (s/keys :req [:event/type]))
+  (println (s/valid? :event/event
+                     {:event/type :event/restart}))
+#+end_src
+
+#+RESULTS:
+: true
+
+** Test collections
+
+*** homogeneous small: coll-of
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  [ (s/conform (s/coll-of keyword?) [:a :b :c])
+    (s/conform (s/coll-of number?) #{ 5 10  2}) ]
+#+end_src
+
+#+RESULTS:
+: '((:a :b :c) #(2 5 10))
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def ::vnum3 (s/coll-of number? :kind vector?
+                                    :count 3
+                                    :distinct true
+                                    :min-count 3 ;; redundant but harmless ...
+                                    :max-count 3 ;; ... here as a reminder
+                                    :into #{}))
+  (s/conform ::vnum3 [ 5 10  2])
+#+end_src
+
+#+RESULTS:
+: :my.domain/vnum3#{2 5 10}
+
+Notice that, in the last failing example, only the =distinc?= spec is reported:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain ::vnum3 #{5 10 2})
+  (s/explain ::vnum3 [1 1 2])
+  (s/explain ::vnum3 [1 2 :a])
+  (s/explain ::vnum3 [1])
+  (s/explain ::vnum3 [1 1 :a])
+#+end_src
+
+#+RESULTS:
+: #{2 5 10} - failed: vector? spec: :my.domain/vnum3
+: [1 1 2] - failed: distinct? spec: :my.domain/vnum3
+: :a - failed: number? in: [2] spec: :my.domain/vnum3
+: [1] - failed: (= 3 (count %)) spec: :my.domain/vnum3
+: [1 1 :a] - failed: distinct? spec: :my.domain/vnum3
+
+*** homogeneous large: every, every-kv
+
+#+begin_src clojure :exports both
+  s/*coll-check-limit*
+#+end_src
+
+#+RESULTS:
+: 101
+
+(TODO: I expected the following to return a set and therefore not to require the
+exterior call of =distinct=.)
+
+(TODO: I expected the following to sample =s/*coll-check-limit*=, that is, 101,
+by default, elements of the infinite collection =(repeat 42)=, and thus, to
+terminate. It (apparently) doesn't terminate if the =(take 1000 ...)= wrapper is
+removed.)
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (distinct (s/conform
+              (s/every int? :kind vector :into #{})
+              (take 1000 (repeat 42))))
+#+end_src
+
+#+RESULTS:
+| 42 |
+
+*** heterogeneous: tuple
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def ::point (s/tuple double? int? double? keyword?))
+  (s/conform ::point [1.5 42 -0.5 :ok])
+#+end_src
+
+#+RESULTS:
+: :my.domain/point[1.5 42 -0.5 :ok]
+
+#+begin_src clojure :exports both
+  (s/conform (s/cat :x double? :h int? :y double? :kw keyword?) [1.5 42 -0.5 :ok])
+#+end_src
+
+#+RESULTS:
+| :x | 1.5 | :h | 42 | :y | -0.5 | :kw | :ok |
+
+*** homogenous: map-of
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def ::scores (s/map-of string? int?))
+  (s/conform ::scores {"Sally" 1000, "Joe" 500})
+#+end_src
+
+#+RESULTS:
+: :my.domain/scores{"Sally" 1000, "Joe" 500}
+
+#+begin_quote
+By default map-of will validate but not conform keys because conformed keys
+might create key duplicates that would cause entries in the map to be
+overridden. If conformed keys are desired, pass the option :conform-keys true.
+#+end_quote
+
+** Test sequences
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def ::ingredient (s/cat :quantity number? :unit keyword?))
+  (s/conform ::ingredient [2 :teaspoon])
+#+end_src
+
+#+RESULTS:
+: :my.domain/ingredient{:quantity 2, :unit :teaspoon}
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain ::ingredient [11 "peaches"])
+#+end_src
+
+#+RESULTS:
+: "peaches" - failed: keyword? in: [1] at: [:unit] spec: :my.domain/ingredient
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/explain ::ingredient ["peaches"])
+#+end_src
+
+#+RESULTS:
+: "peaches" - failed: number? in: [0] at: [:quantity] spec: :my.domain/ingredient
+
+** Test nested regexes (regices?)
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def ::nested
+    (s/cat :names-kw #{:names}
+           :names    (s/spec (s/* string?))
+           :nums-kw  #{:nums}
+           :nums     (s/spec (s/* number?))))
+  (s/conform ::nested [:names ["a" "b"], :nums [1 2 3]])
+#+end_src
+
+#+RESULTS:
+: :my.domain/nested{:names-kw :names, :names ["a" "b"], :nums-kw :nums, :nums [1 2 3]}
+
+** Test runtime validation (:pre and :post)
+
+Without the =println=, the following produces a namespaced object containing a string.
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defn person-name
+    [person]
+    {:pre [(s/valid? ::person person)]
+     :post [(s/valid? string? %)]}
+    (str (::first-name person) " " (::last-name person)))
+  (println (person-name {::first-name "Bugs"
+                         ::last-name "Bunny"
+                         ::email "bugs@example.com"}))
+#+end_src
+
+#+RESULTS:
+: Bugs Bunny
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defn person-name
+    [person]
+    (let [p (s/assert ::person person)]
+      (str (::first-name p) " " (::last-name p))))
+
+  (s/check-asserts true) ;; <~~ Don't forget this; it's off by default.
+  (person-name 100)
+#+end_src
+
+#+RESULTS:
+: class clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoExecution error - invalid arguments to my.domain/person-name at (form-init16851065733415676712.clj:5).
+: 100 - failed: map?
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def ::config (s/*
+                   (s/cat :prop string?
+                          :val  (s/alt :s string? :b boolean?))))
+  (clojure.pprint/pprint
+    (s/conform ::config ["-server" "foo" "-verbose" true "-user" "joe"]))
+#+end_src
+
+#+RESULTS:
+: [{:prop "-server", :val [:s "foo"]}
+:  {:prop "-verbose", :val [:b true]}
+:  {:prop "-user", :val [:s "joe"]}]
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defn- set-config [prop val]
+    ;; dummy fn
+    (println "set" prop val))
+
+  (defn configure [input]
+    (let [parsed (s/conform ::config input)]
+      (if (= parsed ::s/invalid)
+        (throw (ex-info "Invalid input" (s/explain-data ::config input)))
+        (for [{prop :prop [_ val] :val} parsed]
+          (set-config (subs prop 1)  ;; Strip the leading hyphen
+                      val)))))
+
+  (configure ["-server" "foo" "-verbose" true "-user" "joe"])
+#+end_src
+
+#+RESULTS:
+: set server foo
+: set verbose true
+: set user joe
+
+** Test fdef [sic; not =ifdef=]
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (defn ranged-rand
+    "Returns random int in range start <= rand < end. Noti"
+    [start end]
+    (+ start (long (rand (- end start)))))
+
+  (s/fdef ranged-rand
+    :args (s/and (s/cat :start int? :end int?)
+                 #(< (:start %) (:end %)))
+    :ret int?
+    :fn (s/and #(>= (:ret %) (-> % :args :start))
+               #(< (:ret %) (-> % :args :end))))
+#+end_src
+
+#+RESULTS:
+: #'my.domain/ranged-randmy.domain/ranged-rand
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (clojure.repl/doc my.domain/ranged-rand)
+#+end_src
+
+#+RESULTS:
+: -------------------------
+: my.domain/ranged-rand
+: ([start end])
+:   Returns random int in range start <= rand < end. Noti
+: Spec
+:   args: (and (cat :start int? :end int?) (< (:start %) (:end %)))
+:   ret: int?
+:   fn: (and (>= (:ret %) (-> % :args :start)) (< (:ret %) (-> % :args :end)))
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defn adder [x] #(+ x %))
+
+  (s/fdef adder
+    :args (s/cat :x number?)
+    :ret (s/fspec :args (s/cat :y number?)
+                  :ret number?)
+    :fn #(= (-> % :args :x) ((:ret %) 0)))
+
+  (clojure.repl/doc my.domain/adder)
+#+end_src
+
+#+RESULTS:
+: -------------------------
+: my.domain/adder
+: ([x])
+: Spec
+:   args: (cat :x number?)
+:   ret: (fspec :args (cat :y number?) :ret number? :fn nil)
+:   fn: (= (-> % :args :x) ((:ret %) 0))
+
+** Card game
+
+#+begin_src clojure :results output :exports both
+    (ns my.domain)
+    (def suit? #{:club :diamond :heart :spade})
+    (def rank? (into #{:jack :queen :king :ace} (range 2 11)))
+    (def deck (for [suit suit? rank rank?] [rank suit]))
+
+    (s/def ::card (s/tuple rank? suit?))
+    (s/def ::hand (s/* ::card))
+
+    (s/def ::name string?)
+    (s/def ::score int?)
+    (s/def ::player (s/keys :req [::name ::score ::hand]))
+
+    (s/def ::players (s/* ::player))
+    (s/def ::deck (s/* ::card))
+    (s/def ::game (s/keys :req [::players ::deck]))
+
+    (def kenny
+      {::name "Kenny Rogers"
+       ::score 100
+       ::hand []})
+    (println (s/valid? ::player kenny))
+
+  (s/explain ::game
+    {::deck deck
+     ::players [{::name "Kenny Rogers"
+                 ::score 100
+                 ::hand [[2 :banana]]}]})
+#+end_src
+
+#+RESULTS:
+: true
+: :banana - failed: suit? in: [:my.domain/players 0 :my.domain/hand 0 1] at: [:my.domain/players :my.domain/hand 1] spec: :my.domain/card
+
+** Testing test.check
+*** Basic generators
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (require '[clojure.spec.gen.alpha :as gen])
+  (clojure.pprint/pprint
+    [ (gen/generate (s/gen int?))
+      (gen/generate (s/gen nil?))
+      (gen/sample   (s/gen string?))
+      (gen/sample   (s/gen (s/cat :k keyword? :nums (s/* number?))) 5)
+      (s/exercise   (s/cat :k keyword? :ns (s/* number?)) 5)
+      (gen/sample   (s/gen (s/and int? #(> % 0) #(zero? (mod % 3)))))
+      ; (gen/generate (s/gen ::player)) ;; <o=-< works, but is too long
+      ; (gen/generate (s/gen ::game)) ;; <o=-<
+    ])
+#+end_src
+
+#+RESULTS:
+#+begin_example
+[-10620
+ nil
+ ("" "2" "0L" "" "gXs0" "fK0x2" "Mei03" "Ao" "6XhET" "8")
+ ((:_)
+  (:Y*)
+  (:-7A)
+  (:b-v! 0.625 -2.0 -1.0)
+  (:?6Hy.p2.yi4.C-9+/wp1v0 -0.75 1.0 -2))
+ ([(:x) {:k :x}]
+  [(:R/H-) {:k :R/H-}]
+  [(:o -1 1.0) {:k :o, :ns [-1 1.0]}]
+  [(:w/_7gB -2 1.5) {:k :w/_7gB, :ns [-2 1.5]}]
+  [(:_ 1.75 -1.25) {:k :_, :ns [1.75 -1.25]}])
+ (3 30 9 324 6 24 168 1395 6 3)]
+#+end_example
+
+With fully qualified symbols everywhere:
+
+#+begin_src clojure :results output :exports both
+  (clojure.repl/doc my.domain/ranged-rand)
+#+end_src
+
+#+RESULTS:
+: -------------------------
+: my.domain/ranged-rand
+: ([start end])
+:   Returns random int in range start <= rand < end. Noti
+: Spec
+:   args: (and (cat :start int? :end int?) (< (:start %) (:end %)))
+:   ret: int?
+:   fn: (and (>= (:ret %) (-> % :args :start)) (< (:ret %) (-> % :args :end)))
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (clojure.pprint/pprint
+    (s/exercise-fn `ranged-rand)) ;; TODO: <o=-< quote doesn't work; only
+                                  ;; backtick, which isn't =quasiquote= here
+#+end_src
+
+#+RESULTS:
+#+begin_example
+([(-1 0) -1]
+ [(-1 0) -1]
+ [(-1 0) -1]
+ [(-1 3) -1]
+ [(-1 0) -1]
+ [(6 24) 16]
+ [(1 11) 1]
+ [(-8 -1) -2]
+ [(0 98) 86]
+ [(-49 -27) -46])
+#+end_example
+
+*** Testing =s/with-gen=
+
+Keyword generator search space is too large; with overwhelming probability
+(monkeys on keyboards and Jose Luis Borges notwithstanding), we're not going to
+generate keywords in our namespace:
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (s/def ::kws (s/and
+                keyword?
+                #(= (namespace %) "my.domain")))
+  (s/valid? ::kws :my.domain/name) ;; true
+  (gen/sample (s/gen ::kws)) ;; overwhelmingly unlikely we'll generate useful
+                             ;; keywords this way
+#+end_src
+
+#+RESULTS:
+: :my.domain/kwstrueclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoError printing return value (ExceptionInfo) at clojure.test.check.generators/such-that-helper (generators.cljc:320).
+: Couldn't satisfy such-that predicate after 100 tries.
+
+To generate useful samples, reduce the size of the keyword gen space by
+supplying an explicit set of keywords, all of which are in the namespace. The
+set is, itself, a predicate, thus a correct argument for =s/gen=. Define
+=kw-gen= to be that hand-written set of keywords.
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (def kw-gen (s/gen #{:my.domain/->Person :my.domain/rank? :my.domain/person-name
+                       :my.domain/email-regex :my.domain/deck :my.domain/configure
+                       :my.domain/-syms :my.domain/map->Person :my.domain/adder
+                       :my.domain/kenny :my.domain/ranged-rand :my.domain/event-type
+                       :my.domain/kw-gen :my.domain/suit?}))
+  (clojure.pprint/pprint
+    (gen/sample kw-gen 5))
+#+end_src
+
+#+RESULTS:
+: (:my.domain/kenny
+:  :my.domain/deck
+:  :my.domain/map->Person
+:  :my.domain/event-type
+:  :my.domain/ranged-rand)
+
+Now try =with-gen=, specifying the keyword gen-space by hand, not using
+=kw-gen=, defined one block above. The final argument
+to =s/with-gen= must be a thunk (function of no arguments) wrapping the generator:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def ::kws (s/with-gen
+                 (s/and keyword? #(= (namespace %) "my.domain"))
+                 #(s/gen #{:my.domain/->Person :my.domain/rank? :my.domain/person-name
+                           :my.domain/email-regex :my.domain/deck :my.domain/configure
+                           :my.domain/-syms :my.domain/map->Person :my.domain/adder
+                           :my.domain/kenny :my.domain/ranged-rand :my.domain/event-type
+                           :my.domain/kw-gen :my.domain/suit?}
+                         )))
+  (clojure.pprint/pprint
+    (gen/sample (s/gen ::kws) 5))
+#+end_src
+
+#+RESULTS:
+: (:my.domain/-syms
+:  :my.domain/adder
+:  :my.domain/event-type
+:  :my.domain/kenny
+:  :my.domain/kenny)
+
+Now try =with-gen=, specifying the keyword gen-space by wrapping the
+reference to =kw-gen=, defined two blocks above, in a thunk:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def ::kws (s/with-gen
+                 (s/and keyword? #(= (namespace %) "my.domain"))
+                 (fn [] kw-gen)))
+  (clojure.pprint/pprint
+    (gen/sample (s/gen ::kws) 5))
+#+end_src
+
+#+RESULTS:
+: (:my.domain/event-type
+:  :my.domain/rank?
+:  :my.domain/adder
+:  :my.domain/event-type
+:  :my.domain/->Person)
+
+Generalize by sucking all symbols out of the actual namespace, not writing them
+out by hand:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (def -kwds (into #{} (map #(keyword "my.domain" (str %))
+                            (keys (ns-publics 'my.domain)))))
+  (def kw-gen-2 (s/gen -kwds))
+  (s/def
+    ::kws
+    (s/with-gen
+      (s/and keyword? #(= (namespace %) "my.domain"))
+      (fn [] kw-gen-2)))
+  (clojure.pprint/pprint (gen/sample (s/gen ::kws) 5))
+#+end_src
+
+#+RESULTS:
+: (:my.domain/deck
+:  :my.domain/kenny
+:  :my.domain/rank?
+:  :my.domain/deck
+:  :my.domain/ranged-rand)
+
+*** Open generator spaces with fmap
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (let [digit? (set (range 0 10))
+        ascint #(- (int %) 48)]
+    (clojure.pprint/pprint
+             ( ->>
+              (gen/string-alphanumeric)
+              (gen/such-that
+               #(and (not= % "")
+                     (not (digit? (ascint (first %))))))
+              (gen/fmap #(keyword "my.domain" %))
+              gen/sample)))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+(:my.domain/k
+ :my.domain/Lw40
+ :my.domain/IbA3
+ :my.domain/W45
+ :my.domain/XT4U
+ :my.domain/x0OXV
+ :my.domain/q
+ :my.domain/Z29N
+ :my.domain/LQ
+ :my.domain/mdJO4)
+#+end_example
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (s/def ::hello
+    (s/with-gen
+      #(clojure.string/includes? % "hello")
+      #(gen/fmap (fn [[s1 s2]] (str s1 "hello" s2))
+                 (gen/tuple (gen/string-alphanumeric)
+                            (gen/string-alphanumeric)))))
+  (clojure.pprint/pprint
+   (gen/sample (s/gen ::hello)))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+("hello"
+ "hello"
+ "hellomv"
+ "9helloBOo"
+ "7SkHhelloq"
+ "Lhellot6JO"
+ "U26jYhello9099v"
+ "Ug4S7fhello"
+ "3Llwhello"
+ "8933V1nnhelloc")
+#+end_example
+
+*** Range specs and generators
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (-> (s/int-in 0 11)
+      s/gen
+      gen/sample)
+#+end_src
+
+#+RESULTS:
+| 0 | 0 | 1 | 1 | 7 | 8 | 7 | 2 | 6 | 1 |
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (-> (s/inst-in #inst "2000" #inst "2010")
+      s/gen
+      (gen/sample 55)
+      ((partial take-last 5))
+      clojure.pprint/pprint
+  )
+
+#+end_src
+
+#+RESULTS:
+: (#inst "2000-05-12T10:05:38.907-00:00"
+:  #inst "2000-01-03T09:49:47.708-00:00"
+:  #inst "2006-02-07T03:22:52.932-00:00"
+:  #inst "2006-01-22T03:55:43.519-00:00"
+:  #inst "2000-01-01T00:00:17.779-00:00")
+
+** Instrumentation and Testing
+
+=Ranged-rand= is an interesting function. It's defined as follows
+
+\begin{equation}
+  \textrm{rr}(s, e) = s + \textrm{rand}(e - s)
+\end{equation}
+
+where
+
+\begin{equation}
+  \textrm{rand}(n) = n * rand( [0..1) )
+\end{equation}
+
+and \(rand( [0..1) )\) means /a random number between 0, inclusive, and 1, exclusive/.
+
+The intent is obvious when $s<e$ and both are not negative, implying that $e - s
+> 0$. It's what we normally mean by a /range from $s$ to $e$/. With Clojure we
+can spec that intent: remember
+
+#+begin_src clojure :results none :exports both
+  (ns my.domain)
+  (defn ranged-rand
+    "Returns random int in range start <= rand < end. Noti"
+    [start end]
+    (+ start (long (rand (- end start)))))
+
+  (s/fdef ranged-rand
+    :args (s/and (s/cat :start int? :end int?)
+                 #(not (neg? (:start %))) #(not (neg? (:end %)))
+                 #(< (:start %) (:end %)))
+    :ret int?
+    :fn (s/and #(>= (:ret %) (-> % :args :start))
+               #(< (:ret %) (-> % :args :end))))
+#+end_src
+
+By instrumenting the function, we can check its spec at run time. This is
+expensive, so not a default:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (require '[clojure.spec.test.alpha :as stest])
+  (stest/instrument `ranged-rand)
+  (-> (ranged-rand 8 5)
+      clojure.pprint/pprint)
+  (-> (ranged-rand -42 0)
+      clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+: class clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoExecution error - invalid arguments to my.domain/ranged-rand at (form-init16851065733415676712.clj:5).
+: {:start 8, :end 5} - failed: (< (:start %) (:end %))
+: Execution error - invalid arguments to my.domain/ranged-rand at (form-init16851065733415676712.clj:7).
+: {:start -42, :end 0} - failed: (not (neg? (:start %)))
+
+If we =unstrument= the function, we can get away with weird arguments:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (stest/unstrument `ranged-rand)
+  (-> (ranged-rand 8 5)
+      clojure.pprint/pprint)
+  (-> (ranged-rand -42 0)
+      clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+: 8
+: -21
+
+Should we spec the behavior when =start= is
+greater than or equal to =end= and when either or both are negative?
+
+We defined =ranged-rand=, mathematically, as $s+d\times{}[0..1)$, where
+$d=e-s$ and $[0..1)$ stands for a uniform sample between $0$, inclusive, and
+$1$, exclusive (it takes digging into the source for =clojure.core/rand= to
+bottom-out this definition in =java.lang.Math/random=):
+
+#+begin_src clojure :eval never
+  ;; from clojure.core
+  (defn rand
+    "Returns a random floating point number between 0 (inclusive) and
+    n (default 1) (exclusive)."
+    {:added "1.0"
+     :static true}
+    ([] (. Math (random)))
+    ([n] (* n (rand))))
+#+end_src
+
+This definition is meaningful and even seems reasonable for $s, d, d$ negative
+or $0$. Let's do a relaxed spec, which only checks =int?= types for arguments
+and the =:fn= invariant on =:ret=, and generate some values:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (defn ranged-rand
+    "Returns random int in range start <= rand < end. Noti"
+    [start end]
+    (+ start (long (rand (- end start)))))
+
+  (s/fdef ranged-rand
+    :args (s/cat :start int? :end int?)
+    :ret int?
+    :fn (s/and #(>= (:ret %) (-> % :args :start))
+               #(< (:ret %) (-> % :args :end))))
+
+  (-> `ranged-rand
+      s/exercise-fn
+      clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+#+begin_example
+([(0 0) 0]
+ [(-1 -1) -1]
+ [(0 -1) 0]
+ [(-4 -2) -3]
+ [(0 -1) 0]
+ [(-1 -1) -1]
+ [(-2 -2) -2]
+ [(-1 1) 0]
+ [(10 -84) -71]
+ [(39 -1) 6])
+#+end_example
+
+* TESTING
+<<sec:testing>>
+
+Testing is the big payoff for =spec=. Probabilistic testing is the best we can do
+without a formal proof or an exhaustive test.
+
+It is perhaps surprising and certainly instructive that =ranged-rand= has bugs,
+and that writing and checking a good spec reveals the bugs, and that fixing the
+spec controls the bugs.
+
+** Original spec reveals a bug
+
+Here is the original code for =ranged-rand=. You might think this is so trivial
+that it doesn't need a spec. But there are bugs. Can you spot them before you go
+on?
+
+#+begin_src clojure :eval never
+  (defn ranged-rand
+    "Return a random int in range start <= rand < end."
+    [start end]
+    (+ start (long (rand (- end start)))))
+#+end_src
+
+Let's check the original spec, from the official Clojure docs, which didn't have
+a constraint for =start= and =end= other than they be =ints=. Lengthen the test
+to $100,000$ trials so that we're almost certain to trip the unforeseen bug:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+
+  (s/fdef ranged-rand
+    :args (s/and (s/cat :start int? :end int?)
+                 ;; DON'T CONSTRAIN #(not (neg? (:start %))) #(not (neg? (:end %)))
+                 #(< (:start %) (:end %)))
+    :ret int?
+    :fn (s/and #(>= (:ret %) (-> % :args :start))
+               #(< (:ret %) (-> % :args :end))))
+
+  (-> (stest/check `ranged-rand
+                   {:clojure.spec.test.check/opts
+                    {:num-tests 100000}})
+      first
+      stest/abbrev-result
+      :failure .getMessage ;; <o=-< That's a java.lang.Throwable method
+                           ;; <o=-< Remove that line to see everything!
+      clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+: "integer overflow"
+
+The complete output is very long and includes a stack trace, which clutters up
+the document, so I filter the output with =:failure= and =.getMessage=. We can
+see that (AHA!) =start= and =end= can be so far apart that their difference is
+too big for a =clojure.core$long=. Quoting the document for =spec=
+https://clojure.org/guides/spec:
+
+#+begin_quote
+/A keen observer will notice that =ranged-rand= contains a subtle bug. If the difference between =start= and =end= is very large (larger than is representable by =Long/MAX_VALUE=), then =ranged-rand= will produce an =IntegerOverflowException=. If you run =check= several times you will eventually cause this case to occur./
+#+end_quote
+
+** Constrained spec fixes the bug
+
+Our more constrained spec doesn't fail that check. The following takes a long
+time to run, and really only runs in the REPL, not in org-babel, so we just
+paste the results of one run in this document in an =example= block:
+
+#+begin_src clojure :eval never :exports both
+  (ns my.domain)
+
+  (s/fdef ranged-rand
+    :args (s/and (s/cat :start int? :end int?)
+                 ; OH YES, HERE IS THE FIX, NOT TO THE CODE, BUT TO THE SPEC
+                 #(not (neg? (:start %))) #(not (neg? (:end %)))
+                 #(< (:start %) (:end %)))
+    :ret int?
+    :fn (s/and #(>= (:ret %) (-> % :args :start))
+               #(< (:ret %) (-> % :args :end))))
+
+  (-> (stest/check `ranged-rand
+                   {:clojure.spec.test.check/opts
+                    {:num-tests 100000}})
+      clojure.pprint/pprint)
+#+end_src
+
+#+begin_example
+({:spec
+  #object[clojure.spec.alpha$fspec_impl$reify__2524 0x9206636 "clojure.spec.alpha$fspec_impl$reify__2524@9206636"],
+  :clojure.spec.test.check/ret
+  {:result true, :num-tests 100000, :seed 1562631597111},
+  :sym my.domain/ranged-rand})
+#+end_example
+
+** Relaxed spec has a different bug
+
+Consider a relaxed spec, which doesn't check that
+$\textrm{start} < \textrm{end}$, but fails the check:
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+
+  (s/fdef ranged-rand
+    :args (s/and (s/cat :start int? :end int?)
+                 #(not (neg? (:start %))) #(not (neg? (:end %))))
+    :ret int?
+    :fn (s/and #(>= (:ret %) (-> % :args :start))
+               #(< (:ret %) (-> % :args :end))))
+
+  (-> (stest/check `ranged-rand
+                   {:clojure.spec.test.check/opts
+                    {:num-tests 1001}})
+      first
+      stest/abbrev-result
+      :failure ::s/problems ;; <o=-< a new filter!
+      clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+: [{:path [:fn],
+:   :pred
+:   (clojure.core/fn
+:    [%]
+:    (clojure.core/< (:ret %) (clojure.core/-> % :args :end))),
+:   :val {:args {:start 0, :end 0}, :ret 0},
+:   :via [],
+:   :in []}]
+
+We see that, although the return value is sensible when =start= equals =end=,
+it's out of spec and not very useful. Put in the constraint that =start= not
+equal =end=, but still allow =start= to be greater than =end=. That's both
+sensible and useful, if a little "creative." The proper inclusion test becomes
+more delicate, however. In the normal case, where =start= is less than =end=,
+we're closed on =start= and open on =end=, as before. In the reversed case,
+however, we're closed on the right, at =start=, and open on the left, at =end=.
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+
+  (s/fdef ranged-rand
+    :args (s/and (s/cat :start int? :end int?)
+                 #(not (neg? (:start %))) #(not (neg? (:end %)))
+                 #(not= (:start %) (:end %)))
+    :ret int?
+
+    :fn (s/or :regular-branch
+              (s/and
+               #(< (-> % :args :start) (-> % :args :end))
+               #(>= (:ret %) (-> % :args :start))
+               #(<  (:ret %) (-> % :args :end)))
+              :reversed-branch
+              (s/and
+               #(> (-> % :args :start) (-> % :args :end))
+               #(<= (:ret %) (-> % :args :start))
+               #(>  (:ret %) (-> % :args :end)))
+              ))
+
+  (-> (stest/check `ranged-rand
+                   {:clojure.spec.test.check/opts
+                    {:num-tests 1001}})
+      first
+      clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+: {:spec
+:  #object[clojure.spec.alpha$fspec_impl$reify__2524 0x7b099d76 "clojure.spec.alpha$fspec_impl$reify__2524@7b099d76"],
+:  :clojure.spec.test.check/ret
+:  {:result true, :num-tests 1001, :seed 1562720874167},
+:  :sym my.domain/ranged-rand}
+
+All of this isn't worth the effort for this specific, practical case. But it's a
+useful exercise to show two things:
+
+1. Formally spec'cing even seemingly easy code is surprisingly difficult and
+   forces you to /think/ below the surface. Without this thinking, we would have
+   put the original code into production with at least two bugs because we
+   /thought/, superficially, we knew what we were doing. The exercise of
+   spec'cing forced us to question our smug assuredness.
+
+2. Checking your specs reveals how sloppy even your deeper thinking is. The more
+   delicate inclusion testing took a couple of rounds to get right, and it
+   wouldn't have been right without check's quasi-verification to reveal
+   problems.
+
+Clojure.spec only gives us quasi-formal checking: we don't have a theorem,
+though I think it wouldn't be too hard to drive to one at this point. But the
+checks are extremely useful, much more useful than mere unit testing, because
+they force us to consider and encode subtleties. The goal is to cover /all/
+subtleties, and quasi-verification gives us a better chance of getting there.
+
+
+** Combining check and instrument
+
+This shows /mocking/ and /dependency injection/, Clojure-style.
+
+Code under test:
+
+#+begin_src clojure :results none
+  (ns my.domain)
+  (defn invoke-service [service request]
+    ;; mock!
+  )
+  (defn run-query [service query]
+    (let [{::keys [result error]} (invoke-service service {::query query})]
+      (or result error)))
+#+end_src
+
+We can spec these functions as follows:
+
+#+begin_src clojure :results none
+  (ns my.domain)
+  (s/def ::query string?)
+  (s/def ::request (s/keys :req [::query]))
+  (s/def ::result (s/coll-of string? :gen-max 3))
+  (s/def ::error int?)
+  (s/def ::response (s/or :ok (s/keys :req [::result])
+                      :err (s/keys :req [::error])))
+#+end_src
+
+Ultimately, we should do better than =any?= for the spec of the =:service=. But,
+for now:
+
+#+begin_src clojure :results none
+  (ns my.domain)
+  (s/fdef invoke-service
+    :args (s/cat :service any? :request ::request) ;; <o=-< TODO: do better
+    :ret ::response)
+
+  (s/fdef run-query
+    :args (s/cat :service any? :query string?)
+    :ret (s/or :ok ::result :err ::error))
+#+end_src
+
+Test =run-query= while mocking =invoke-service=
+with =instrument= so that the remote service is not invoked:
+
+#+begin_src clojure :exports both
+  (ns my.domain)
+  (stest/instrument `invoke-service {:stub #{`invoke-service}})
+  ;;=> [spec.examples.guide/invoke-service]
+#+end_src
+
+#+RESULTS:
+| my.domain/invoke-service |
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (-> (invoke-service nil {::query "test"}) clojure.pprint/pprint)
+  (-> (invoke-service nil {::query "test"}) clojure.pprint/pprint)
+  (-> (invoke-service nil {::query "test"}) clojure.pprint/pprint)
+  (-> (invoke-service nil {::query "test"}) clojure.pprint/pprint)
+#+end_src
+
+#+RESULTS:
+: #:my.domain{:result ["O02iv1Iq" "tJJa2T8Uv9hJ6yqxm55p4T0Cg0"]}
+: #:my.domain{:error -60281}
+: #:my.domain{:error -345473979}
+: #:my.domain{:result ["vAUssVd5ys82" "QG3EE16"]}
+
+#+begin_quote
+/The first call here instruments and stubs invoke-service. The second and third calls demonstrate that calls to invoke-service now return generated results (rather than hitting a service). Finally, we can use check on the higher level function to test that it behaves properly based on the generated stub results returned from invoke-service./
+#+end_quote
+
+* TIME WARP OPERATING SYSTEM
+
+This isn't going to be a real operating system, rather a simulation of an
+operating system running in one or more processes or threads, to be determined
+as we develop it.
+
+* TODO: ORCHESTRA (BEYOND INSTRUMENT) AND EXPOUND (BEYOND EXPLAIN)
+
+* COMMENT All namespaces
+
+#+begin_src clojure :results output :exports both
+  (clojure.pprint/pprint (all-ns))
+#+end_src
+
+#+RESULTS:
+#+begin_example
+(#namespace[nrepl.middleware.interruptible-eval]
+ #namespace[cider.nrepl.pprint]
+ #namespace[rewrite-clj.node.forms]
+ #namespace[refactor-nrepl.ns.slam.hound.search]
+ #namespace[clojure.tools.reader.impl.utils]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.info]
+ #namespace[cider.nrepl.middleware.track-state]
+ #namespace[clojure.stacktrace]
+ #namespace[rewrite-clj.zip.whitespace]
+ #namespace[cider.nrepl.middleware.util.nrepl]
+ #namespace[orchard.classloader]
+ #namespace[rewrite-clj.potemkin]
+ #namespace[cider.nrepl.inlined-deps.javaclasspath.v0v2v3.clojure.java.classpath]
+ #namespace[cider.nrepl.inlined-deps.cljs-tooling.v0v3v1.cljs-tooling.util.analysis]
+ #namespace[clojure.test]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.meta]
+ #namespace[rewrite-clj.node.token]
+ #namespace[rewrite-clj.node.fn]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader]
+ #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.dependency]
+ #namespace[cider.nrepl.middleware.content-type]
+ #namespace[clojure.test.check.impl]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.cljs.meta]
+ #namespace[dynapath.util]
+ #namespace[cider.nrepl.middleware.debug]
+ #namespace[rewrite-clj.parser.string]
+ #namespace[clojure.core.server]
+ #namespace[clojure.core.specs.alpha]
+ #namespace[nrepl.server]
+ #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.find]
+ #namespace[nrepl.middleware.session]
+ #namespace[rewrite-clj.parser.keyword]
+ #namespace[clojure.spec.test.alpha]
+ #namespace[rewrite-clj.node]
+ #namespace[clojure.reflect]
+ #namespace[cider.nrepl.inlined-deps.dynapath.v1v0v0.dynapath.defaults]
+ #namespace[cider.nrepl.middleware.inspect]
+ #namespace[orchard.java]
+ #namespace[refactor-nrepl.ns.slam.hound.future]
+ #namespace[cider.nrepl.middleware.util.error-handling]
+ #namespace[nrepl.middleware.caught]
+ #namespace[rewrite-clj.node.comment]
+ #namespace[rewrite-clj.node.string]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.default-data-readers]
+ #namespace[clojure.spec.alpha]
+ #namespace[clojure.set]
+ #namespace[rewrite-clj.node.coerce]
+ #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.file]
+ #namespace[cider.nrepl.middleware.stacktrace]
+ #namespace[rewrite-clj.zip]
+ #namespace[orchard.misc]
+ #namespace[nrepl.ack]
+ #namespace[clojure.string]
+ #namespace[clojure.java.browse]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.java]
+ #namespace[version-clj.compare]
+ #namespace[org.httpkit.encode]
+ #namespace[clojure.data.priority-map]
+ #namespace[rewrite-clj.zip.find]
+ #namespace[rewrite-clj.node.meta]
+ #namespace[rewrite-clj.custom-zipper.core]
+ #namespace[clojure.java.javadoc]
+ #namespace[clojure.tools.namespace.file]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.impl.inspect]
+ #namespace[refactor-nrepl.util]
+ #namespace[rewrite-clj.node.protocols]
+ #namespace[clojure.repl]
+ #namespace[rewrite-clj.zip.subedit]
+ #namespace[rewrite-clj.zip.edit]
+ #namespace[version-clj.split]
+ #namespace[refactor-nrepl.middleware]
+ #namespace[clojure.tools.reader.default-data-readers]
+ #namespace[clojure.test.check.clojure-test]
+ #namespace[clojure.template]
+ #namespace[orchard.classpath]
+ #namespace[nrepl.misc]
+ #namespace[rewrite-clj.node.seq]
+ #namespace[cider.nrepl.inlined-deps.dynapath.v1v0v0.dynapath.dynamic-classpath]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.reader-types]
+ #namespace[clojure.test.check]
+ #namespace[clojure.core]
+ #namespace[rewrite-clj.zip.insert]
+ #namespace[clojure.test.check.generators]
+ #namespace[clojure.tools.reader.reader-types]
+ #namespace[clojure.walk]
+ #namespace[cider.nrepl.inlined-deps.dynapath.v1v0v0.dynapath.util]
+ #namespace[nrepl.middleware]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.java.parser]
+ #namespace[dynapath.defaults]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.impl.utils]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.impl.commons]
+ #namespace[clojure.spec.gen.alpha]
+ #namespace[cider.nrepl.middleware.enlighten]
+ #namespace[rewrite-clj.node.keyword]
+ #namespace[clojure.tools.reader.impl.commons]
+ #namespace[rewrite-clj.parser.core]
+ #namespace[clojure.tools.namespace.track]
+ #namespace[complete.core]
+ #namespace[clojure.uuid]
+ #namespace[clojure.main]
+ #namespace[cider.nrepl.middleware.util.cljs]
+ #namespace[user]
+ #namespace[version-clj.core]
+ #namespace[dynapath.dynamic-classpath]
+ #namespace[rewrite-clj.node.uneval]
+ #namespace[refactor-nrepl.ns.ns-parser]
+ #namespace[clojure.tools.reader.edn]
+ #namespace[org.httpkit.client]
+ #namespace[clojure.tools.namespace.parse]
+ #namespace[clojure.edn]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.spec]
+ #namespace[cheshire.generate]
+ #namespace[clojure.java.io]
+ #namespace[rewrite-clj.parser.utils]
+ #namespace[cider.nrepl]
+ #namespace[rewrite-clj.parser.token]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.misc]
+ #namespace[clojure.core.protocols]
+ #namespace[rewrite-clj.node.quote]
+ #namespace[clojure.test.check.random]
+ #namespace[rewrite-clj.node.regex]
+ #namespace[clojure.tools.reader.impl.inspect]
+ #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.parse]
+ #namespace[clojure.pprint]
+ #namespace[rewrite-clj.zip.move]
+ #namespace[cider.nrepl.inlined-deps.cljs-tooling.v0v3v1.cljs-tooling.util.misc]
+ #namespace[clojure.spec.test.check]
+ #namespace[refactor-nrepl.s-expressions]
+ #namespace[clojure.java.classpath]
+ #namespace[rewrite-clj.zip.seq]
+ #namespace[rewrite-clj.parser]
+ #namespace[clojure.test.check.rose-tree]
+ #namespace[nrepl.bencode]
+ #namespace[nrepl.middleware.load-file]
+ #namespace[cider.nrepl.version]
+ #namespace[nrepl.version]
+ #namespace[clojure.instant]
+ #namespace[clojure.tools.reader]
+ #namespace[rewrite-clj.reader]
+ #namespace[refactor-nrepl.ns.slam.hound.regrow]
+ #namespace[cheshire.generate-seq]
+ #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.impl.errors]
+ #namespace[rewrite-clj.custom-zipper.utils]
+ #namespace[rewrite-clj.zip.walk]
+ #namespace[my.domain]
+ #namespace[refactor-nrepl.config]
+ #namespace[nrepl.transport]
+ #namespace[refactor-nrepl.artifacts]
+ #namespace[twos-1-10-1.core]
+ #namespace[cheshire.parse]
+ #namespace[cider.nrepl.middleware.util.meta]
+ #namespace[refactor-nrepl.stubs-for-interface]
+ #namespace[cider.nrepl.middleware.out]
+ #namespace[clojure.test.check.properties]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.cljs.analysis]
+ #namespace[cider.nrepl.inlined-deps.cljs-tooling.v0v3v1.cljs-tooling.util.special]
+ #namespace[cheshire.factory]
+ #namespace[rewrite-clj.parser.whitespace]
+ #namespace[me.raynes.fs]
+ #namespace[clojure.datafy]
+ #namespace[rewrite-clj.node.integer]
+ #namespace[cider.nrepl.print-method]
+ #namespace[rewrite-clj.zip.base]
+ #namespace[refactor-nrepl.core]
+ #namespace[clojure.tools.namespace.dependency]
+ #namespace[rewrite-clj.node.whitespace]
+ #namespace[cheshire.core]
+ #namespace[clojure.tools.namespace.find]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.classpath]
+ #namespace[clojure.java.shell]
+ #namespace[clojure.tools.reader.impl.errors]
+ #namespace[nrepl.core]
+ #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.track]
+ #namespace[rewrite-clj.zip.remove]
+ #namespace[refactor-nrepl.ns.libspecs]
+ #namespace[rewrite-clj.node.reader-macro]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.inspect]
+ #namespace[nrepl.middleware.print]
+ #namespace[clojure.zip]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.namespace]
+ #namespace[cider.nrepl.middleware.slurp]
+ #namespace[cider.nrepl.middleware.util.instrument])
+#+end_example
+
+Notice that the keyword is associated with a =multi-spec=:
+
+#+begin_src clojure :results output :exports both
+; (ns my.domain)
+(doc :event/event)
+#+end_src
+
+#+RESULTS:
+: -------------------------
+: :event/event
+: Spec
+:   (multi-spec event-type :event/type)
+
+* TODO: ENUMERATE NAMESPACE
+** CORE
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (-> (stest/enumerate-namespace 'clojure.core)
+      stest/check
+      clojure.pprint/pprint )
+#+end_src
+
+#+RESULTS:
+: ()
+
+** SPEC.ALPHA
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (-> (stest/enumerate-namespace 'my.domain)
+      ;stest/check
+      clojure.pprint/pprint )
+#+end_src
+
+#+RESULTS:
+: #{my.domain/event-type my.domain/run-query my.domain/person-name
+:   my.domain/kenny my.domain/rank? my.domain/-kwds my.domain/ranged-rand
+:   my.domain/invoke-service my.domain/email-regex my.domain/deck
+:   my.domain/suit? my.domain/configure my.domain/adder
+:   my.domain/map->Person my.domain/set-config my.domain/->Person
+:   my.domain/kw-gen-2 my.domain/kw-gen}
+
+** MONADS
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (require '[clojure.algo.monads :as m])
+  (-> (stest/enumerate-namespace 'clojure.algo.monads)
+      stest/check
+      clojure.pprint/pprint )
+#+end_src
+
+#+RESULTS:
+: ()
+
+
+* COMMENT APPENDICES
+
+** BACKGROUND
+
+[fn:mole] http://www2.ess.ucla.edu/~schauble/MoleculeHTML/CF4_html/CF4_page.html
+[fn:hand] https://www.youtube.com/watch?v=XYoS68yJVmw
+[fn:theo] https://www.youtube.com/watch?v=OxcCPTc_bXw
+[fn:rigs] https://github.com/RigsOfRods/rigs-of-rods
+[fn:mathdragon] https://github.com/rebseal/GriesSchneiderScripts/tree/master/mathematica
+[fn:spec47] http://blog.cognitect.com/blog/2016/10/5/interactive-development-with-clojurespec
+
+* ARDES URLS
+<<sec:urls>>
+
+- ARDES 101 :: \mbox{}
+https://w.amazon.com/bin/view/Amazon_Robotics/Virtual_Systems/Get_Started
+
+- ARDES 2.0 SDK :: \mbox{}
+https://w.amazon.com/bin/view/Amazon_Robotics/Virtual_Systems/Engines/ARDES/SDK2.0/
+
+- ARDES AirGateway Simulation :: \mbox{}
+https://drive.corp.amazon.com/documents/OpsSimulation/AR%20ARDES%20AirGateway%20Simulation.docx
+
+- ARDES Batch Interface :: \mbox{}
+https://w.amazon.com/index.php/Amazon%20Robotics/Virtual%20Systems/Developers/ArdesBatch
+
+- ARDES CLI Command Reference :: \mbox{}
+https://w.amazon.com/index.php/Main/ARDES/Internal/ArdesCLICommandReference
+
+- ARDES Case Depalletizer Simulation :: \mbox{}
+https://drive.corp.amazon.com/documents/OpsSimulation/AR%20ARDES%20Case%20Depalletizer%20Simulation.docx
+
+- ARDES Developer Onboarding :: \mbox{}
+https://w.amazon.com/bin/view/Main/ARDES/Dev/Onboarding/#HRunyourfirstlocalsimulation
+
+- ARDES FC Rolo Simulation :: \mbox{}
+https://drive.corp.amazon.com/documents/OpsSimulation/AR%20ARDES%20FC%20Rolo%20Simulation.docx
+
+- ARDES Internal Visualization :: \mbox{}
+https://w.amazon.com/bin/view/Main/ARDES/Internal#HVisualization
+
+- ARDES Parallel Event Coordinator :: \mbox{}
+https://w.amazon.com/index.php/Amazon%20Robotics/Virtual%20Systems/Developers/ParallelEventProcessing
+
+- ARDES Quick Start for Mac :: \mbox{}
+https://w.amazon.com/bin/view/Main/ARDES/demo/
+
+- ARDES ROLO (Restowing of Relocated Inventory) :: \mbox{}
+https://w.amazon.com/bin/view/Amazon_Robotics/Virtual_Systems/Engines/ARDES/ROLO/
+
+- ARDES SortCenter Simulation :: \mbox{}
+https://drive.corp.amazon.com/documents/OpsSimulation/AR%20ARDES%20SortCenter%20Simulation.docx
+
+- ARDES Streaming Service :: \mbox{}
+https://code.amazon.com/packages/ARDESStreamingServiceService/blobs/mainline/--/install_ARDESStreamingService_workspace.sh?raw=1
+
+- ARDES Time Warp :: \mbox{}
+https://w.amazon.com/bin/view/Amazon_Robotics/Virtual_Systems/Engines/Interns/TimeWarp/
+
+- Black Caiman :: \mbox{}
+https://w.amazon.com/bin/view/Black_Caiman/
+
+- Study of FlexSim / ARDES integration :: \mbox{}
+https://w.amazon.com/index.php/Amazon%20Robotics/Virtual%20Systems/Developers/ArdesFlexSimIntegration
+
+* COMMENT RANDOM URLS
+
+- QR algorithm - Wikipedia :: https://en.wikipedia.org/wiki/QR_algorithm
+
+- projectchrono/chrono: C++ library for multi-physics simulation :: https://github.com/projectchrono/chrono
+
+- AdnStateMachineTester - Code Browser :: https://code.amazon.com/packages/AdnStateMachineTester/trees/mainline
+
+- ARDES 101 :: https://w.amazon.com/bin/view/Amazon_Robotics/Virtual_Systems/Get_Started
+
+- ARDES Developer Onboarding :: https://w.amazon.com/bin/view/Main/ARDES/Dev/Onboarding/#HRunyourfirstlocalsimulation
+
+- Ray 0.8.0.dev1 documentation :: https://ray.readthedocs.io/en/latest/index.html
+
+- SoftwareStandard- s/CodeReviewGuidelines :: https://w.amazon.com/index.php/SoftwareStandards/CodeReviewGuidelines#What_to_look_for_in_a_code_review
+
+- junit-quickcheck :: https://pholser.github.io/junit-quickcheck/site/0.9/usage/getting-started.html
+
+- (158) j. kim vandiver - YouTube :: https://www.youtube.com/results?search_query=j.+kim+vandiver
+
+- junit-quickcheck :: http://pholser.github.io/junit-quickcheck/site/0.9/source-repository.html
+
+- Black Caiman :: https://w.amazon.com/bin/view/Black_Caiman/
+
+- Attitude determination using Star Tracker Data with Kalman filters :: https://calhoun.nps.edu/bitstream/handle/10945/4713/01Dec_Travis.pdf?sequence=1&isAllowed=y
+
+- Microsoft Word - Star Tracker ieee_aero07.doc :: file:///home/ANT.AMAZON.COM/bbeckman/Dropbox/StarTracker_ieee_aero07.pdf
+
+- Cemenska_MS_Kalman_Filters.pdf :: file:///home/ANT.AMAZON.COM/bbeckman/Downloads/Cemenska_MS_Kalman_Filters.pdf
+
+- An Extended Kalman Filter-Based Attitude Tracking Algorithm for Star Sensors :: https://pdfs.semanticscholar.org/fd2b/d311a4579b58e9c6c8445c01596837fe0647.pdf?_ga=2.60495850.633342495.1561329599-50881889.1561329599
+
+- peyton-jones.pdf :: https://www.cis.upenn.edu/~sweirich/icfp-plmw15/slides/peyton-jones.pdf
+
+- Axis–angle representation - Wikipedia :: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+
+- Writing AWS Lambda Functions in Clojure | AWS Compute Blog :: https://aws.amazon.com/blogs/compute/clojure/
+
+- Joker :: https://joker-lang.org/
+
+- The compact Org-mode Guide: Properties :: https://orgmode.org/guide/Properties.html
+
+- Chart of Simplified Brief Forms - Gregg Shorthand :: http://gregg.angelfishy.net/smpbfs.shtml
+
+- gnomonic projection in astronomy - Google Search :: https://www.google.com/search?q=gnomonic+projection+in+astronomy&oq=gnomonic+projection+in+astronomy&aqs=chrome..69i57.7799j0j4&sourceid=chrome&ie=UTF-8
+
+- AIPSIM_107.pdf :: https://library.nrao.edu/public/memos/aips/memos/AIPSIM_107.pdf
+
+- coxeter introduction to geometry pdf - Google Search :: https://www.google.com/search?q=coxeter+introduction+to+geometry+pdf&ei=5c0OXZT5ItyS0PEPrOa3iAk&start=10&sa=N&ved=0ahUKEwjU__Cpsv7iAhVcCTQIHSzzDZEQ8NMDCNMB&biw=1536&bih=745
+
+- Geometry.Revisited_Coxeter.Greitzer_0883856190.djvu :: http://www.aproged.pt/biblioteca/geometryrevisited_coxetergreitzer.pdf
+
+- Functional Java - Download :: https://www.functionaljava.org/download.html
+
+- Functional Java - Quickstart :: https://www.functionaljava.org/quickstart.html
