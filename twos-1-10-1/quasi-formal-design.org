@@ -139,7 +139,7 @@ a spec. I define a /quasi-formal/ verification as a proof that your system
 random data into the system and then checks the spec. Clojure uses your spec to
 generate random input data. You should formally specify the domains of all your
 inputs. Domains are, sets, like the integers, or the floating-point numbers, or
-rows following some SQL schema. Clojure maliciously chooses values from the
+rows following some SQL schema. Clojure mischievously chooses values from the
 domains, values likely to cause problems with software in general, like $0$,
 $-\infty$, =NaN=, empty strings, null pointers, rows with null values in the
 columns. When Clojure finds values that violate the spec, it /shrinks/ them,
@@ -265,7 +265,7 @@ is not correctly started, a message will appear in the minibuffer stating
 #+end_src
 
 #+RESULTS:
-: #inst "2019-07-10T01:07:48.275-00:00"
+: #inst "2019-07-20T21:19:51.281-00:00"
 
 If you get =Wrong type argument...=, issue emacs command =cider-jack-in=, wait
 for it to return, then try again. If none of that works, Google about cider and
@@ -456,8 +456,8 @@ fully qualify the =doc= symbol.)
 
   (s/def ::acctid     int?)
   (s/def ::first-name string?)
-  (s/def ::last-name string?)
-  (s/def ::email     ::email-type)
+  (s/def ::last-name  string?)
+  (s/def ::email      ::email-type)
 
   (s/def ::person (s/keys :req [::first-name ::last-name ::email]
                           :opt [::phone]))
@@ -823,6 +823,8 @@ removed.)
 
 *** heterogeneous: tuple
 
+Generate a conforming instance of a spec:
+
 #+begin_src clojure :exports both
   (ns my.domain)
   (s/def ::point (s/tuple double? int? double? keyword?))
@@ -833,7 +835,10 @@ removed.)
 : :my.domain/point[1.5 42 -0.5 :ok]
 
 #+begin_src clojure :exports both
-  (s/conform (s/cat :x double? :h int? :y double? :kw keyword?) [1.5 42 -0.5 :ok])
+    (s/conform (s/cat :x double?
+                      :h int?
+                      :y double?
+                      :kw keyword?) [1.5 42 -0.5 :ok])
 #+end_src
 
 #+RESULTS:
@@ -929,7 +934,7 @@ Without the =println=, the following produces a namespaced object containing a s
 #+end_src
 
 #+RESULTS:
-: class clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoExecution error - invalid arguments to my.domain/person-name at (form-init16851065733415676712.clj:5).
+: class clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoExecution error - invalid arguments to my.domain/person-name at (form-init4936458191847267032.clj:5).
 : 100 - failed: map?
 
 #+begin_src clojure :results output :exports both
@@ -1081,20 +1086,20 @@ Without the =println=, the following produces a namespaced object containing a s
 
 #+RESULTS:
 #+begin_example
-[-10620
+[62961632
  nil
- ("" "2" "0L" "" "gXs0" "fK0x2" "Mei03" "Ao" "6XhET" "8")
- ((:_)
-  (:Y*)
-  (:-7A)
-  (:b-v! 0.625 -2.0 -1.0)
-  (:?6Hy.p2.yi4.C-9+/wp1v0 -0.75 1.0 -2))
- ([(:x) {:k :x}]
-  [(:R/H-) {:k :R/H-}]
-  [(:o -1 1.0) {:k :o, :ns [-1 1.0]}]
-  [(:w/_7gB -2 1.5) {:k :w/_7gB, :ns [-2 1.5]}]
-  [(:_ 1.75 -1.25) {:k :_, :ns [1.75 -1.25]}])
- (3 30 9 324 6 24 168 1395 6 3)]
+ ("" "j" "" "Z" "8" "c" "06rJ" "5w3O" "V0zC" "s818H62aS")
+ ((:-)
+  (:A/?)
+  (:oa/?-h 0.5 0)
+  (:uq/J?3 0.625)
+  (:r7o??/*D??* -3 2.875 -1 -1))
+ ([(:a) {:k :a}]
+  [(:b) {:k :b}]
+  [(:Qjw/C!) {:k :Qjw/C!}]
+  [(:G/!N?o 0 -3 -3.5) {:k :G/!N?o, :ns [0 -3 -3.5]}]
+  [(:q9E-0/R 1.1875 -1) {:k :q9E-0/R, :ns [1.1875 -1]}])
+ (6 3 3 3 6 15 24 3 873 114)]
 #+end_example
 
 With fully qualified symbols everywhere:
@@ -1123,15 +1128,15 @@ With fully qualified symbols everywhere:
 #+RESULTS:
 #+begin_example
 ([(-1 0) -1]
+ [(-1 1) 0]
  [(-1 0) -1]
- [(-1 0) -1]
- [(-1 3) -1]
- [(-1 0) -1]
- [(6 24) 16]
- [(1 11) 1]
- [(-8 -1) -2]
- [(0 98) 86]
- [(-49 -27) -46])
+ [(-2 1) 0]
+ [(-1 5) 4]
+ [(-2 0) -2]
+ [(-15 9) -10]
+ [(2 30) 24]
+ [(-108 0) -58]
+ [(1 220) 69])
 #+end_example
 
 *** Testing =s/with-gen=
@@ -1161,21 +1166,21 @@ set is, itself, a predicate, thus a correct argument for =s/gen=. Define
 
 #+begin_src clojure :results output :exports both
   (ns my.domain)
-  (def kw-gen (s/gen #{:my.domain/->Person :my.domain/rank? :my.domain/person-name
-                       :my.domain/email-regex :my.domain/deck :my.domain/configure
-                       :my.domain/-syms :my.domain/map->Person :my.domain/adder
-                       :my.domain/kenny :my.domain/ranged-rand :my.domain/event-type
-                       :my.domain/kw-gen :my.domain/suit?}))
+  (def kw-gen (s/gen #{::->Person ::rank? ::person-name
+                       ::email-regex ::deck ::configure
+                       ::-syms ::map->Person ::adder
+                       ::kenny ::ranged-rand ::event-type
+                       ::kw-gen ::suit?}))
   (clojure.pprint/pprint
     (gen/sample kw-gen 5))
 #+end_src
 
 #+RESULTS:
-: (:my.domain/kenny
-:  :my.domain/deck
-:  :my.domain/map->Person
+: (:my.domain/deck
+:  :my.domain/ranged-rand
+:  :my.domain/->Person
 :  :my.domain/event-type
-:  :my.domain/ranged-rand)
+:  :my.domain/adder)
 
 Now try =with-gen=, specifying the keyword gen-space by hand, not using
 =kw-gen=, defined one block above. The final argument
@@ -1185,22 +1190,22 @@ to =s/with-gen= must be a thunk (function of no arguments) wrapping the generato
   (ns my.domain)
   (s/def ::kws (s/with-gen
                  (s/and keyword? #(= (namespace %) "my.domain"))
-                 #(s/gen #{:my.domain/->Person :my.domain/rank? :my.domain/person-name
-                           :my.domain/email-regex :my.domain/deck :my.domain/configure
-                           :my.domain/-syms :my.domain/map->Person :my.domain/adder
-                           :my.domain/kenny :my.domain/ranged-rand :my.domain/event-type
-                           :my.domain/kw-gen :my.domain/suit?}
+                 #(s/gen #{::->Person ::rank? ::person-name
+                           ::email-regex ::deck ::configure
+                           ::-syms ::map->Person ::adder
+                           ::kenny ::ranged-rand ::event-type
+                           ::kw-gen ::suit?}
                          )))
   (clojure.pprint/pprint
     (gen/sample (s/gen ::kws) 5))
 #+end_src
 
 #+RESULTS:
-: (:my.domain/-syms
-:  :my.domain/adder
-:  :my.domain/event-type
-:  :my.domain/kenny
-:  :my.domain/kenny)
+: (:my.domain/person-name
+:  :my.domain/person-name
+:  :my.domain/ranged-rand
+:  :my.domain/deck
+:  :my.domain/person-name)
 
 Now try =with-gen=, specifying the keyword gen-space by wrapping the
 reference to =kw-gen=, defined two blocks above, in a thunk:
@@ -1215,11 +1220,11 @@ reference to =kw-gen=, defined two blocks above, in a thunk:
 #+end_src
 
 #+RESULTS:
-: (:my.domain/event-type
-:  :my.domain/rank?
-:  :my.domain/adder
-:  :my.domain/event-type
-:  :my.domain/->Person)
+: (:my.domain/deck
+:  :my.domain/kw-gen
+:  :my.domain/ranged-rand
+:  :my.domain/->Person
+:  :my.domain/email-regex)
 
 Generalize by sucking all symbols out of the actual namespace, not writing them
 out by hand:
@@ -1238,11 +1243,11 @@ out by hand:
 #+end_src
 
 #+RESULTS:
-: (:my.domain/deck
-:  :my.domain/kenny
-:  :my.domain/rank?
-:  :my.domain/deck
-:  :my.domain/ranged-rand)
+: (:my.domain/invoke-service
+:  :my.domain/map->Person
+:  :my.domain/kw-gen-2
+:  :my.domain/run-query
+:  :my.domain/kenny)
 
 *** Open generator spaces with fmap
 
@@ -1262,16 +1267,16 @@ out by hand:
 
 #+RESULTS:
 #+begin_example
-(:my.domain/k
- :my.domain/Lw40
- :my.domain/IbA3
- :my.domain/W45
- :my.domain/XT4U
- :my.domain/x0OXV
- :my.domain/q
- :my.domain/Z29N
- :my.domain/LQ
- :my.domain/mdJO4)
+(:my.domain/Lylw
+ :my.domain/U
+ :my.domain/HO
+ :my.domain/XBv
+ :my.domain/w
+ :my.domain/u
+ :my.domain/Qg8I71SnCC
+ :my.domain/H
+ :my.domain/mt5Nys5
+ :my.domain/q7HAF)
 #+end_example
 
 #+begin_src clojure :results output :exports both
@@ -1290,14 +1295,14 @@ out by hand:
 #+begin_example
 ("hello"
  "hello"
- "hellomv"
- "9helloBOo"
- "7SkHhelloq"
- "Lhellot6JO"
- "U26jYhello9099v"
- "Ug4S7fhello"
- "3Llwhello"
- "8933V1nnhelloc")
+ "helloG0"
+ "PcZhello"
+ "sA1helloJ22"
+ "W5hello"
+ "87hellol"
+ "qRhelloB"
+ "M8qcHzhello9mzeAD"
+ "OC8dChellon")
 #+end_example
 
 *** Range specs and generators
@@ -1310,7 +1315,7 @@ out by hand:
 #+end_src
 
 #+RESULTS:
-| 0 | 0 | 1 | 1 | 7 | 8 | 7 | 2 | 6 | 1 |
+| 0 | 1 | 1 | 3 | 0 | 2 | 2 | 0 | 1 | 5 |
 
 #+begin_src clojure :results output :exports both
   (ns my.domain)
@@ -1324,11 +1329,11 @@ out by hand:
 #+end_src
 
 #+RESULTS:
-: (#inst "2000-05-12T10:05:38.907-00:00"
-:  #inst "2000-01-03T09:49:47.708-00:00"
-:  #inst "2006-02-07T03:22:52.932-00:00"
-:  #inst "2006-01-22T03:55:43.519-00:00"
-:  #inst "2000-01-01T00:00:17.779-00:00")
+: (#inst "2000-01-29T13:36:10.848-00:00"
+:  #inst "2000-01-21T04:57:19.960-00:00"
+:  #inst "2000-03-12T22:19:15.160-00:00"
+:  #inst "2000-01-01T00:51:07.723-00:00"
+:  #inst "2006-10-20T09:41:34.010-00:00")
 
 ** Instrumentation and Testing
 
@@ -1380,9 +1385,9 @@ expensive, so not a default:
 #+end_src
 
 #+RESULTS:
-: class clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoExecution error - invalid arguments to my.domain/ranged-rand at (form-init16851065733415676712.clj:5).
+: class clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoclass clojure.lang.ExceptionInfoExecution error - invalid arguments to my.domain/ranged-rand at (form-init4936458191847267032.clj:5).
 : {:start 8, :end 5} - failed: (< (:start %) (:end %))
-: Execution error - invalid arguments to my.domain/ranged-rand at (form-init16851065733415676712.clj:7).
+: Execution error - invalid arguments to my.domain/ranged-rand at (form-init4936458191847267032.clj:7).
 : {:start -42, :end 0} - failed: (not (neg? (:start %)))
 
 If we =unstrument= the function, we can get away with weird arguments:
@@ -1397,8 +1402,8 @@ If we =unstrument= the function, we can get away with weird arguments:
 #+end_src
 
 #+RESULTS:
-: 8
-: -21
+: 6
+: -2
 
 Should we spec the behavior when =start= is
 greater than or equal to =end= and when either or both are negative?
@@ -1443,16 +1448,16 @@ and the =:fn= invariant on =:ret=, and generate some values:
 
 #+RESULTS:
 #+begin_example
-([(0 0) 0]
+([(-1 0) -1]
  [(-1 -1) -1]
  [(0 -1) 0]
- [(-4 -2) -3]
- [(0 -1) 0]
- [(-1 -1) -1]
- [(-2 -2) -2]
- [(-1 1) 0]
- [(10 -84) -71]
- [(39 -1) 6])
+ [(-2 0) -2]
+ [(-6 -3) -5]
+ [(-1 -2) -1]
+ [(-4 3) 1]
+ [(-1 0) -1]
+ [(0 -21) -13]
+ [(5 23) 13])
 #+end_example
 
 * TESTING
@@ -1620,9 +1625,9 @@ however, we're closed on the right, at =start=, and open on the left, at =end=.
 
 #+RESULTS:
 : {:spec
-:  #object[clojure.spec.alpha$fspec_impl$reify__2524 0x7b099d76 "clojure.spec.alpha$fspec_impl$reify__2524@7b099d76"],
+:  #object[clojure.spec.alpha$fspec_impl$reify__2524 0x1c19b63f "clojure.spec.alpha$fspec_impl$reify__2524@1c19b63f"],
 :  :clojure.spec.test.check/ret
-:  {:result true, :num-tests 1001, :seed 1562720874167},
+:  {:result true, :num-tests 1001, :seed 1563657597129},
 :  :sym my.domain/ranged-rand}
 
 All of this isn't worth the effort for this specific, practical case. But it's a
@@ -1644,7 +1649,6 @@ though I think it wouldn't be too hard to drive to one at this point. But the
 checks are extremely useful, much more useful than mere unit testing, because
 they force us to consider and encode subtleties. The goal is to cover /all/
 subtleties, and quasi-verification gives us a better chance of getting there.
-
 
 ** Combining check and instrument
 
@@ -1709,16 +1713,18 @@ with =instrument= so that the remote service is not invoked:
 #+end_src
 
 #+RESULTS:
-: #:my.domain{:result ["O02iv1Iq" "tJJa2T8Uv9hJ6yqxm55p4T0Cg0"]}
-: #:my.domain{:error -60281}
-: #:my.domain{:error -345473979}
-: #:my.domain{:result ["vAUssVd5ys82" "QG3EE16"]}
+: #:my.domain{:error -14}
+: #:my.domain{:error -2275}
+: #:my.domain{:error -1}
+: #:my.domain{:result ["B03QsdrGULy2ZJi8le10jB"]}
 
 #+begin_quote
 /The first call here instruments and stubs invoke-service. The second and third calls demonstrate that calls to invoke-service now return generated results (rather than hitting a service). Finally, we can use check on the higher level function to test that it behaves properly based on the generated stub results returned from invoke-service./
 #+end_quote
 
 * TIME WARP OPERATING SYSTEM
+
+https://blog.acolyer.org/2015/08/20/virtual-time/
 
 This is a simulation of a distributed operating system in one or more
 processes, cores, processors, or threads, to be determined as we develop it.
@@ -1866,14 +1872,15 @@ nomenclature traditional in operating systems like =mid= for /message-id/,
  #namespace[orchard.classloader]
  #namespace[rewrite-clj.potemkin]
  #namespace[cider.nrepl.inlined-deps.javaclasspath.v0v2v3.clojure.java.classpath]
+ #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.java.legacy-parser]
  #namespace[cider.nrepl.inlined-deps.cljs-tooling.v0v3v1.cljs-tooling.util.analysis]
  #namespace[clojure.test]
  #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.meta]
  #namespace[rewrite-clj.node.token]
  #namespace[rewrite-clj.node.fn]
  #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader]
- #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.dependency]
  #namespace[cider.nrepl.middleware.content-type]
+ #namespace[cider.nrepl.inlined-deps.toolsnamespace.v0v3v0-alpha4.clojure.tools.namespace.dependency]
  #namespace[clojure.test.check.impl]
  #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.cljs.meta]
  #namespace[dynapath.util]
@@ -1934,13 +1941,12 @@ nomenclature traditional in operating systems like =mid= for /message-id/,
  #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.reader-types]
  #namespace[clojure.test.check]
  #namespace[clojure.core]
- #namespace[rewrite-clj.zip.insert]
  #namespace[clojure.test.check.generators]
+ #namespace[rewrite-clj.zip.insert]
  #namespace[clojure.tools.reader.reader-types]
  #namespace[clojure.walk]
  #namespace[cider.nrepl.inlined-deps.dynapath.v1v0v0.dynapath.util]
  #namespace[nrepl.middleware]
- #namespace[cider.nrepl.inlined-deps.orchard.v0v5v0-beta8.orchard.java.parser]
  #namespace[dynapath.defaults]
  #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.impl.utils]
  #namespace[cider.nrepl.inlined-deps.toolsreader.v1v3v2.clojure.tools.reader.impl.commons]
@@ -1999,6 +2005,7 @@ nomenclature traditional in operating systems like =mid= for /message-id/,
  #namespace[rewrite-clj.zip.walk]
  #namespace[my.domain]
  #namespace[refactor-nrepl.config]
+ #namespace[orchard.java.parser]
  #namespace[nrepl.transport]
  #namespace[refactor-nrepl.artifacts]
  #namespace[twos-1-10-1.core]
@@ -2011,8 +2018,8 @@ nomenclature traditional in operating systems like =mid= for /message-id/,
  #namespace[cider.nrepl.inlined-deps.cljs-tooling.v0v3v1.cljs-tooling.util.special]
  #namespace[cheshire.factory]
  #namespace[rewrite-clj.parser.whitespace]
- #namespace[me.raynes.fs]
  #namespace[clojure.datafy]
+ #namespace[me.raynes.fs]
  #namespace[rewrite-clj.node.integer]
  #namespace[cider.nrepl.print-method]
  #namespace[rewrite-clj.zip.base]
