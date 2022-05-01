@@ -265,7 +265,7 @@ is not correctly started, a message will appear in the minibuffer stating
 #+end_src
 
 #+RESULTS:
-: #inst "2019-07-20T21:19:51.281-00:00"
+: #inst "2022-04-29T15:02:58.507-00:00"
 
 If you get =Wrong type argument...=, issue emacs command =cider-jack-in=, wait
 for it to return, then try again. If none of that works, Google about cider and
@@ -355,7 +355,7 @@ All the following should be true:
            (s/valid? #(> % 5) 10)
            (not (s/valid? #(> % 5) 0))
 
-           (s/valid? inst? (java.util.Date.))
+           (s/valid? inst? (java.util.Date.))  ;; inst? == instance?
 
            (s/valid? #{:club :diamond :heart :spade} :club)
            (not (s/valid? #{:club :diamond :heart :spade} 42)) ])
@@ -423,6 +423,11 @@ fully qualify the =doc= symbol.)
 #+RESULTS:
 : :foo - failed: string? at: [:name] spec: :my.domain/name-or-id
 : :foo - failed: int? at: [:id] spec: :my.domain/name-or-id
+
+#+begin_src clojure :results output :exports both
+  (ns my.domain)
+  (clojure/inspect ::name-or-id :foo)
+#+end_src
 
 #+begin_src clojure :results output :exports both
   (ns my.domain)

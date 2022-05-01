@@ -71,6 +71,7 @@
   (prop/for-all
    [m (s/gen :twos-1-10-1.core/message)]
    (< (:send-time m) (:receive-time m))))
+
 ;;; 6.
 (defn hand-constructed-message []
   (map->tw-message
@@ -99,6 +100,7 @@
 ;; | |\/| / -_|_-<_-</ _` / _` / -_) |  _/ _` | | '_(_-<
 ;; |_|  |_\___/__/__/\__,_\__, \___| |_| \__,_|_|_| /__/
 ;;                        |___/
+
 ;;; 9.
 (defspec message-pairs-identical-but-for-sign
   20
@@ -596,6 +598,7 @@
        :sign 1,
        :message-id #uuid "924c6b52-07d5-4598-be34-03e7c97e6745"})
      Double/POSITIVE_INFINITY})))
+
 ;;; 14.
 (deftest two-messages-with-receive-time-3-in-iq-1
   (let [expected
@@ -616,45 +619,53 @@
              :sign 1,
              :message-id #uuid "e4ce2511-18b5-4d62-a130-fbf8060196bb"})
           )]
-    (is (= expected
-           (fetch-bundle
-            iq-1
-            3)))))
+    (is (= (sort-by :sender expected)
+           (sort-by :sender (fetch-bundle
+             iq-1
+             3))))))
+
 ;;; 15.
 (deftest thirty-one-messages-with-receive-time-0-in-iq-1
   (is (= 31 (count
              (fetch-bundle
               iq-1
               0)))))
+
 ;;; 16.
 (deftest one-message-with-receive-time-positive-infinity-in-iq-1
   (is (= 1 (count
             (fetch-bundle
              iq-1
              Double/POSITIVE_INFINITY)))))
+
 ;;; 17.
 (deftest no-messages-with-receive-time-negative-infinity-in-iq-1
   (is (= 0 (count
             (fetch-bundle
              iq-1
              Double/NEGATIVE_INFINITY)))))
+
 ;;; 18.
 (deftest iq-1-is-monotonic-in-virtual-time
   (is (let [times (map second iq-1)
             vt-vt-pairs (partition 2 1 times)] ; constructs adjacent pairs
         (every? (partial apply #(<= %1 %2))
                 vt-vt-pairs))))
+
 ;;; 19.
 (deftest all-messages-in-iq-1-are-positive
   (is (every? (fn [[msg vt]] (= 1 (:sign msg)))
               (:iq-priority-map iq-1))))
+
 ;;; 20.
 (deftest every-vt-value-equals-receive-time-in-iq-1
   (is (every? (fn [[msg vt]] (= (:receive-time msg) vt))
               (:iq-priority-map iq-1))))
+
 ;;; 21.
 (deftest forty-nine-messages-in-iq-1
   (is (= 49 (count (:iq-priority-map iq-1)))))
+
 ;;; 22.
 (deftest iq-1-has-a-priority-queue
   (is (instance? clojure.data.priority_map.PersistentPriorityMap
@@ -666,6 +677,7 @@
    [msg-vt-pairs (s/gen :twos-1-10-1.core/input-queue)]
    (every? (fn [[msg vt]] (= (:receive-time msg) vt))
            msg-vt-pairs)))
+
 ;;; 24.
 (deftest deleting-one-message-produces-a-queue-with-forty-eight-messages
   (is (= 48 (-> iq-1
@@ -673,6 +685,7 @@
                  #uuid "cbd5af9b-7788-4660-bcd4-a8abc2f16597")
                 :iq-priority-map
                 count))))
+
 ;;; 25.
 (deftest deleting-a-junk-mid-leaves-the-queue-unmodified
   (is (= 48 (-> iq-1
@@ -680,6 +693,7 @@
                  #uuid "10301030-1030-0204-1030-020402040204")
                 :iq-priority-map
                 count))))
+
 ;;; 26.
 (deftest deleting-all-messages-produces-empty-queue
   (is (= 0 (-> (reduce delete-message-by-mid
@@ -690,6 +704,7 @@
                             (map :message-id)))
                :iq-priority-map
                count))))
+
 ;;; 27.
 (defspec inserting-a-new-input-message-into-iq-1-increases-its-count-to-fifty
   20
@@ -699,6 +714,7 @@
              (insert-message m)
              :iq-priority-map
              count))))
+
 ;;; 28.
 (defspec all-message-ids-in-input-queue-are-unique
   20
